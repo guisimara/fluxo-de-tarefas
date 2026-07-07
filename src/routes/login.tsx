@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { AuthShell } from "@/lib/auth-form";
 import { toast } from "sonner";
 
@@ -23,13 +22,6 @@ function LoginPage() {
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Bem-vindo de volta!");
-    navigate({ to: "/app" });
-  };
-
-  const google = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (result.error) return toast.error("Não foi possível entrar com Google");
-    if (result.redirected) return;
     navigate({ to: "/app" });
   };
 
@@ -57,12 +49,6 @@ function LoginPage() {
           {loading ? "Entrando..." : "Entrar"}
         </button>
       </form>
-      <div className="my-5 flex items-center gap-3 text-xs text-white/40">
-        <div className="h-px flex-1 bg-white/10" /> ou <div className="h-px flex-1 bg-white/10" />
-      </div>
-      <button onClick={google} className="w-full rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white hover:bg-white/10">
-        Continuar com Google
-      </button>
     </AuthShell>
   );
 }
