@@ -16,33 +16,51 @@ export type Database = {
     Tables: {
       products: {
         Row: {
+          checkout_link: string | null
           color: string
           created_at: string
           description: string | null
           id: string
+          instagram: string | null
           name: string
           owner_id: string
           project_id: string
+          project_link: string | null
+          sales_platform: Database["public"]["Enums"]["sales_platform"] | null
+          status: Database["public"]["Enums"]["product_status"]
+          suggested_price: number | null
           updated_at: string
         }
         Insert: {
+          checkout_link?: string | null
           color?: string
           created_at?: string
           description?: string | null
           id?: string
+          instagram?: string | null
           name: string
           owner_id: string
           project_id: string
+          project_link?: string | null
+          sales_platform?: Database["public"]["Enums"]["sales_platform"] | null
+          status?: Database["public"]["Enums"]["product_status"]
+          suggested_price?: number | null
           updated_at?: string
         }
         Update: {
+          checkout_link?: string | null
           color?: string
           created_at?: string
           description?: string | null
           id?: string
+          instagram?: string | null
           name?: string
           owner_id?: string
           project_id?: string
+          project_link?: string | null
+          sales_platform?: Database["public"]["Enums"]["sales_platform"] | null
+          status?: Database["public"]["Enums"]["product_status"]
+          suggested_price?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -347,6 +365,8 @@ export type Database = {
       member_role: "admin" | "editor" | "viewer"
       member_status: "pending" | "accepted"
       org_role: "admin" | "gestor" | "lider" | "operacional"
+      product_status: "em_construcao" | "ativo"
+      sales_platform: "hotmart" | "kiwify" | "kirvano" | "stripe"
       task_priority: "baixa" | "media" | "alta"
       task_status:
         | "aberto"
@@ -484,6 +504,8 @@ export const Constants = {
       member_role: ["admin", "editor", "viewer"],
       member_status: ["pending", "accepted"],
       org_role: ["admin", "gestor", "lider", "operacional"],
+      product_status: ["em_construcao", "ativo"],
+      sales_platform: ["hotmart", "kiwify", "kirvano", "stripe"],
       task_priority: ["baixa", "media", "alta"],
       task_status: [
         "aberto",

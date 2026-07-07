@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Plus, UserPlus, List, KanbanSquare, GanttChartSquare } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useProjectScope } from "@/lib/project-scope";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import type { Task, Project } from "@/lib/tasks";
 
 export const Route = createFileRoute("/_authenticated/app")({
@@ -25,7 +27,9 @@ const VIEWS = [
 type ViewMode = (typeof VIEWS)[number]["id"];
 
 function DashboardPage() {
-  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const { user } = useCurrentUser();
+  const { scope } = useProjectScope();
+  const isProjectScope = scope !== "all" && scope !== "personal";
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [view, setView] = useState<ViewMode>("kanban");
@@ -44,10 +48,12 @@ function DashboardPage() {
   });
 
   const tasks = useQuery({
-    queryKey: ["tasks", projectFilter],
+    queryKey: ["tasks", scope, user?.id],
+    enabled: scope !== "personal" || !!user,
     queryFn: async () => {
       let q = supabase.from("tasks").select("*").order("created_at", { ascending: false });
-      if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
+      if (isProjectScope) q = q.eq("project_id", scope);
+      else if (scope === "personal") q = q.eq("assignee_id", user!.id);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as Task[];
@@ -87,13 +93,6 @@ function DashboardPage() {
             placeholder="Buscar tarefa..."
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
           />
-          <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os projetos</SelectItem>
-              {(projects.data ?? []).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
             <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -113,7 +112,7 @@ function DashboardPage() {
               <SelectItem value="sem_prazo">Sem prazo</SelectItem>
             </SelectContent>
           </Select>
-          {projectFilter !== "all" && (
+          {isProjectScope && (
             <Button variant="outline" onClick={() => setInviteOpen(true)}>
               <UserPlus className="mr-2 h-4 w-4" /> Convidar
             </Button>
@@ -156,7 +155,7 @@ function DashboardPage() {
           <KanbanBoard
             tasks={filtered}
             projects={projects.data ?? []}
-            defaultProjectId={projectFilter !== "all" ? projectFilter : undefined}
+            defaultProjectId={isProjectScope ? scope : undefined}
           />
         ) : view === "list" ? (
           <TaskListView tasks={filtered} projects={projects.data ?? []} onOpen={openTask} />
@@ -170,10 +169,10 @@ function DashboardPage() {
         onOpenChange={(v) => { setTaskOpen(v); if (!v) setEditingTask(null); }}
         task={editingTask}
         projects={projects.data ?? []}
-        defaultProjectId={projectFilter !== "all" ? projectFilter : undefined}
+        defaultProjectId={isProjectScope ? scope : undefined}
       />
-      {projectFilter !== "all" && (
-        <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} projectId={projectFilter} />
+      {isProjectScope && (
+        <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} projectId={scope} />
       )}
     </div>
   );

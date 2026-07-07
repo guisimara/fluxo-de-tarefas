@@ -6,24 +6,43 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Package, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Package, Trash2, Link2, Instagram, ShoppingCart, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import type { Product } from "@/lib/tasks";
+import {
+  PRODUCT_STATUS_LABEL,
+  SALES_PLATFORM_LABEL,
+  type Product,
+  type ProductStatus,
+  type SalesPlatform,
+} from "@/lib/tasks";
 import { ColorPicker } from "@/components/color-picker";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
   component: ProductsPage,
 });
 
+const EMPTY_FORM = {
+  name: "",
+  description: "",
+  projectLink: "",
+  salesPlatform: "" as SalesPlatform | "",
+  checkoutLink: "",
+  instagram: "",
+  suggestedPrice: "",
+  color: "#3B82F6",
+  status: "em_construcao" as ProductStatus,
+};
+
 function ProductsPage() {
   const qc = useQueryClient();
   const { user } = useCurrentUser();
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState("#3B82F6");
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const products = useQuery({
     queryKey: ["products"],
@@ -39,21 +58,32 @@ function ProductsPage() {
       if (!user) throw new Error();
       const { data: project, error: projectError } = await supabase
         .from("projects")
-        .insert({ name, description: description || null, color, owner_id: user.id })
+        .insert({ name: form.name, description: form.description || null, color: form.color, owner_id: user.id })
         .select()
         .single();
       if (projectError) throw projectError;
 
-      const { error: productError } = await supabase
-        .from("products")
-        .insert({ name, description: description || null, color, project_id: project.id, owner_id: user.id });
+      const { error: productError } = await supabase.from("products").insert({
+        name: form.name,
+        description: form.description || null,
+        color: form.color,
+        project_id: project.id,
+        owner_id: user.id,
+        status: form.status,
+        project_link: form.projectLink || null,
+        sales_platform: form.salesPlatform || null,
+        checkout_link: form.checkoutLink || null,
+        instagram: form.instagram || null,
+        suggested_price: form.suggestedPrice ? Number(form.suggestedPrice) : null,
+      });
       if (productError) throw productError;
     },
     onSuccess: () => {
       toast.success("Produto criado");
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["projects"] });
-      setOpen(false); setName(""); setDescription(""); setColor("#3B82F6");
+      setOpen(false);
+      setForm(EMPTY_FORM);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -103,6 +133,48 @@ function ProductsPage() {
                     <h3 className="font-semibold">{p.name}</h3>
                   </div>
                   {p.description && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.description}</p>}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                    <span
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 font-medium",
+                        p.status === "ativo"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-amber-200 bg-amber-50 text-amber-700",
+                      )}
+                    >
+                      {PRODUCT_STATUS_LABEL[p.status]}
+                    </span>
+                    {p.sales_platform && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-muted-foreground">
+                        <ShoppingCart className="h-3 w-3" /> {SALES_PLATFORM_LABEL[p.sales_platform]}
+                      </span>
+                    )}
+                    {p.suggested_price != null && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-muted-foreground">
+                        <Tag className="h-3 w-3" /> R$ {Number(p.suggested_price).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {p.project_link && (
+                      <a href={p.project_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 hover:text-foreground">
+                        <Link2 className="h-3 w-3" /> Projeto
+                      </a>
+                    )}
+                    {p.checkout_link && (
+                      <a href={p.checkout_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 hover:text-foreground">
+                        <ShoppingCart className="h-3 w-3" /> Checkout
+                      </a>
+                    )}
+                    {p.instagram && (
+                      <a href={p.instagram} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 hover:text-foreground">
+                        <Instagram className="h-3 w-3" /> Instagram
+                      </a>
+                    )}
+                  </div>
+
                   <div className="mt-4 text-xs text-muted-foreground">Criado em {new Date(p.created_at).toLocaleDateString("pt-BR")}</div>
                 </Link>
                 {p.owner_id === user?.id && (
@@ -117,16 +189,63 @@ function ProductsPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Novo produto</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: App Mobile" /></div>
-            <div><Label>Descrição</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
-            <div><Label className="mb-2 block">Cor</Label><ColorPicker value={color} onChange={setColor} /></div>
+            <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2.5">
+              <div>
+                <Label className="text-sm">Status do produto</Label>
+                <p className="text-xs text-muted-foreground">{PRODUCT_STATUS_LABEL[form.status]}</p>
+              </div>
+              <Switch
+                checked={form.status === "ativo"}
+                onCheckedChange={(checked) => setForm((f) => ({ ...f, status: checked ? "ativo" : "em_construcao" }))}
+              />
+            </div>
+
+            <div>
+              <Label>Nome do produto</Label>
+              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ex.: App Mobile" />
+            </div>
+            <div>
+              <Label>Descrição do produto</Label>
+              <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} />
+            </div>
+            <div>
+              <Label>Link do projeto</Label>
+              <Input value={form.projectLink} onChange={(e) => setForm((f) => ({ ...f, projectLink: e.target.value }))} placeholder="https://..." />
+            </div>
+            <div>
+              <Label className="mb-2 block">Plataforma de venda</Label>
+              <Select value={form.salesPlatform} onValueChange={(v) => setForm((f) => ({ ...f, salesPlatform: v as SalesPlatform }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(SALES_PLATFORM_LABEL) as SalesPlatform[]).map((k) => (
+                    <SelectItem key={k} value={k}>{SALES_PLATFORM_LABEL[k]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Link do checkout</Label>
+              <Input value={form.checkoutLink} onChange={(e) => setForm((f) => ({ ...f, checkoutLink: e.target.value }))} placeholder="https://..." />
+            </div>
+            <div>
+              <Label>Instagram do projeto</Label>
+              <Input value={form.instagram} onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))} placeholder="https://instagram.com/..." />
+            </div>
+            <div>
+              <Label>Preço sugerido</Label>
+              <Input type="number" step="0.01" value={form.suggestedPrice} onChange={(e) => setForm((f) => ({ ...f, suggestedPrice: e.target.value }))} placeholder="0,00" />
+            </div>
+            <div>
+              <Label className="mb-2 block">Cor</Label>
+              <ColorPicker value={form.color} onChange={(color) => setForm((f) => ({ ...f, color }))} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={() => create.mutate()} disabled={!name.trim()}>Criar</Button>
+            <Button onClick={() => create.mutate()} disabled={!form.name.trim()}>Criar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

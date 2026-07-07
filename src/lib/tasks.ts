@@ -69,6 +69,20 @@ export interface Profile {
   avatar_url: string | null;
 }
 
+export type ProductStatus = "em_construcao" | "ativo";
+export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
+  em_construcao: "Em construção",
+  ativo: "Ativo",
+};
+
+export type SalesPlatform = "hotmart" | "kiwify" | "kirvano" | "stripe";
+export const SALES_PLATFORM_LABEL: Record<SalesPlatform, string> = {
+  hotmart: "Hotmart",
+  kiwify: "Kiwify",
+  kirvano: "Kirvano",
+  stripe: "Stripe",
+};
+
 export interface Product {
   id: string;
   project_id: string;
@@ -76,6 +90,12 @@ export interface Product {
   description: string | null;
   color: string;
   owner_id: string;
+  status: ProductStatus;
+  project_link: string | null;
+  sales_platform: SalesPlatform | null;
+  checkout_link: string | null;
+  instagram: string | null;
+  suggested_price: number | null;
   created_at: string;
   updated_at: string;
 }
