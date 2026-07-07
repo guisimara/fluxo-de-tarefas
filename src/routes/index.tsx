@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, KanbanSquare, Users, Mail, Calendar, Sparkles, ArrowRight } from "lucide-react";
+import { StarField } from "@/components/star-field";
+import { OnboardingDemoBoard } from "@/components/onboarding-demo-board";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -7,8 +9,9 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   return (
-    <div className="dark landing-shell">
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6">
+    <div className="dark landing-shell relative overflow-hidden">
+      <StarField />
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6">
         {/* Header */}
         <header className="flex items-center justify-between py-6">
           <div className="flex items-center gap-2 text-lg font-semibold tracking-tight">
@@ -36,7 +39,7 @@ function Landing() {
             <Sparkles className="h-3 w-3 text-[#3B82F6]" />
             Novo — gestor de tarefas simples e colaborativo
           </div>
-          <h1 className="mx-auto max-w-4xl text-balance text-5xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
+          <h1 className="mx-auto max-w-4xl text-balance text-4xl font-semibold leading-[1.05] tracking-tight md:text-5xl">
             Organize suas tarefas, projetos e entregas
             <span className="block bg-gradient-to-r from-white via-[#93C5FD] to-[#3B82F6] bg-clip-text text-transparent">
               em um só lugar.
@@ -80,6 +83,15 @@ function Landing() {
               ))}
             </div>
           </div>
+        </section>
+
+        {/* Demo interativo */}
+        <section className="pb-24">
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Veja como é simples</h2>
+            <p className="mt-3 text-white/60">Crie uma tarefa de teste agora mesmo, sem precisar de conta.</p>
+          </div>
+          <OnboardingDemoBoard />
         </section>
 
         {/* Recursos */}
