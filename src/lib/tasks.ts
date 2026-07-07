@@ -29,6 +29,7 @@ export type Priority = "baixa" | "media" | "alta";
 export interface Task {
   id: string;
   project_id: string;
+  parent_id: string | null;
   title: string;
   description: string | null;
   status: Status;
@@ -40,6 +41,23 @@ export interface Task {
   position: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface TaskNode extends Task {
+  children: TaskNode[];
+}
+
+export function buildTaskTree(tasks: Task[]): TaskNode[] {
+  const nodes = new Map<string, TaskNode>(tasks.map((t) => [t.id, { ...t, children: [] }]));
+  const roots: TaskNode[] = [];
+  for (const node of nodes.values()) {
+    if (node.parent_id && nodes.has(node.parent_id)) {
+      nodes.get(node.parent_id)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
 }
 
 export interface Project {

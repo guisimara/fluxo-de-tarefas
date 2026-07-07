@@ -5,10 +5,11 @@ import { useState } from "react";
 import { StatusSummary } from "@/components/status-summary";
 import { KanbanBoard } from "@/components/kanban-board";
 import { TaskListView, TaskTimelineView } from "@/components/task-views";
+import { TaskTree } from "@/components/task-tree";
 import { TaskModal } from "@/components/task-modal";
 import { InviteModal } from "@/components/invite-modal";
 import { Button } from "@/components/ui/button";
-import { Plus, UserPlus, List, KanbanSquare, GanttChartSquare } from "lucide-react";
+import { Plus, UserPlus, List, KanbanSquare, GanttChartSquare, GitBranch } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useProjectScope } from "@/lib/project-scope";
@@ -23,6 +24,7 @@ const VIEWS = [
   { id: "list", label: "Lista", icon: List },
   { id: "kanban", label: "Kanban", icon: KanbanSquare },
   { id: "timeline", label: "Timeline", icon: GanttChartSquare },
+  { id: "tree", label: "Árvore", icon: GitBranch },
 ] as const;
 type ViewMode = (typeof VIEWS)[number]["id"];
 
@@ -35,6 +37,7 @@ function DashboardPage() {
   const [view, setView] = useState<ViewMode>("kanban");
   const [taskOpen, setTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [parentTask, setParentTask] = useState<Task | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -77,7 +80,10 @@ function DashboardPage() {
     return true;
   });
 
-  const openTask = (t: Task) => { setEditingTask(t); setTaskOpen(true); };
+  const openTask = (t: Task) => { setEditingTask(t); setParentTask(null); setTaskOpen(true); };
+  const addSubtask = (parent: Task) => { setEditingTask(null); setParentTask(parent); setTaskOpen(true); };
+
+  const topLevel = filtered.filter((t) => !t.parent_id);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
@@ -117,7 +123,7 @@ function DashboardPage() {
               <UserPlus className="mr-2 h-4 w-4" /> Convidar
             </Button>
           )}
-          <Button onClick={() => { setEditingTask(null); setTaskOpen(true); }} disabled={(projects.data ?? []).length === 0}>
+          <Button onClick={() => { setEditingTask(null); setParentTask(null); setTaskOpen(true); }} disabled={(projects.data ?? []).length === 0}>
             <Plus className="mr-2 h-4 w-4" /> Nova tarefa
           </Button>
         </div>
@@ -153,21 +159,25 @@ function DashboardPage() {
           </div>
         ) : view === "kanban" ? (
           <KanbanBoard
-            tasks={filtered}
+            tasks={topLevel}
             projects={projects.data ?? []}
             defaultProjectId={isProjectScope ? scope : undefined}
           />
         ) : view === "list" ? (
-          <TaskListView tasks={filtered} projects={projects.data ?? []} onOpen={openTask} />
+          <TaskListView tasks={topLevel} projects={projects.data ?? []} onOpen={openTask} />
+        ) : view === "timeline" ? (
+          <TaskTimelineView tasks={topLevel} projects={projects.data ?? []} onOpen={openTask} />
         ) : (
-          <TaskTimelineView tasks={filtered} projects={projects.data ?? []} onOpen={openTask} />
+          <TaskTree tasks={filtered} projects={projects.data ?? []} onOpen={openTask} onAddSubtask={addSubtask} />
         )}
       </div>
 
       <TaskModal
         open={taskOpen}
-        onOpenChange={(v) => { setTaskOpen(v); if (!v) setEditingTask(null); }}
+        onOpenChange={(v) => { setTaskOpen(v); if (!v) { setEditingTask(null); setParentTask(null); } }}
         task={editingTask}
+        parentTask={parentTask}
+        onAddSubtask={addSubtask}
         projects={projects.data ?? []}
         defaultProjectId={isProjectScope ? scope : undefined}
       />

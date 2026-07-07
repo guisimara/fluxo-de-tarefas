@@ -4,20 +4,31 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { StatusSummary } from "@/components/status-summary";
 import { KanbanBoard } from "@/components/kanban-board";
+import { TaskTree } from "@/components/task-tree";
 import { TaskModal } from "@/components/task-modal";
 import { InviteModal } from "@/components/invite-modal";
 import { Button } from "@/components/ui/button";
-import { Plus, UserPlus, ArrowLeft, Users } from "lucide-react";
+import { Plus, UserPlus, ArrowLeft, Users, KanbanSquare, GitBranch } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Task, Project, ProjectMember, Profile } from "@/lib/tasks";
 
-export const Route = createFileRoute("/_authenticated/projetos/$id")({
+export const Route = createFileRoute("/_authenticated/projetos_/$id")({
   component: ProjectPage,
 });
+
+const VIEWS = [
+  { id: "kanban", label: "Kanban", icon: KanbanSquare },
+  { id: "tree", label: "Árvore", icon: GitBranch },
+] as const;
+type ViewMode = (typeof VIEWS)[number]["id"];
 
 function ProjectPage() {
   const { id } = Route.useParams();
   const [taskOpen, setTaskOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [parentTask, setParentTask] = useState<Task | null>(null);
+  const [view, setView] = useState<ViewMode>("kanban");
 
   const project = useQuery({
     queryKey: ["project", id],
@@ -59,6 +70,10 @@ function ProjectPage() {
 
   if (!project.data) return <div className="p-8 text-muted-foreground">Carregando...</div>;
 
+  const openTask = (t: Task) => { setEditingTask(t); setParentTask(null); setTaskOpen(true); };
+  const addSubtask = (parent: Task) => { setEditingTask(null); setParentTask(parent); setTaskOpen(true); };
+  const topLevel = (tasks.data ?? []).filter((t) => !t.parent_id);
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
       <Link to="/projetos" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -73,7 +88,7 @@ function ProjectPage() {
           <Button variant="outline" onClick={() => setInviteOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" /> Convidar
           </Button>
-          <Button onClick={() => setTaskOpen(true)}>
+          <Button onClick={() => { setEditingTask(null); setParentTask(null); setTaskOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" /> Nova tarefa
           </Button>
         </div>
@@ -81,8 +96,27 @@ function ProjectPage() {
 
       <StatusSummary tasks={tasks.data ?? []} />
 
-      <div className="mt-6">
-        <KanbanBoard tasks={tasks.data ?? []} projects={[project.data]} defaultProjectId={project.data.id} />
+      <div className="mt-6 inline-flex rounded-lg border border-border bg-card p-1">
+        {VIEWS.map((v) => (
+          <button
+            key={v.id}
+            onClick={() => setView(v.id)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition",
+              view === v.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <v.icon className="h-4 w-4" /> {v.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        {view === "kanban" ? (
+          <KanbanBoard tasks={topLevel} projects={[project.data]} defaultProjectId={project.data.id} />
+        ) : (
+          <TaskTree tasks={tasks.data ?? []} projects={[project.data]} onOpen={openTask} onAddSubtask={addSubtask} />
+        )}
       </div>
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-5">
@@ -110,7 +144,15 @@ function ProjectPage() {
         </div>
       </div>
 
-      <TaskModal open={taskOpen} onOpenChange={setTaskOpen} projects={[project.data]} defaultProjectId={project.data.id} />
+      <TaskModal
+        open={taskOpen}
+        onOpenChange={(v) => { setTaskOpen(v); if (!v) { setEditingTask(null); setParentTask(null); } }}
+        task={editingTask}
+        parentTask={parentTask}
+        onAddSubtask={addSubtask}
+        projects={[project.data]}
+        defaultProjectId={project.data.id}
+      />
       <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} projectId={project.data.id} />
     </div>
   );

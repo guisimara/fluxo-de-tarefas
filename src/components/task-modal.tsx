@@ -19,6 +19,8 @@ export function TaskModal({
   task,
   defaultProjectId,
   defaultStatus,
+  parentTask,
+  onAddSubtask,
   projects,
 }: {
   open: boolean;
@@ -26,6 +28,8 @@ export function TaskModal({
   task?: Task | null;
   defaultProjectId?: string;
   defaultStatus?: Status;
+  parentTask?: Task | null;
+  onAddSubtask?: (task: Task) => void;
   projects: Project[];
 }) {
   const { user } = useCurrentUser();
@@ -46,7 +50,7 @@ export function TaskModal({
     if (!open) return;
     setTitle(task?.title ?? "");
     setDescription(task?.description ?? "");
-    setProjectId(task?.project_id ?? defaultProjectId ?? projects[0]?.id ?? "");
+    setProjectId(task?.project_id ?? parentTask?.project_id ?? defaultProjectId ?? projects[0]?.id ?? "");
     setStatus(task?.status ?? defaultStatus ?? "aberto");
     setPriority(task?.priority ?? "media");
     setDueDate(task?.due_date ?? "");
@@ -54,7 +58,7 @@ export function TaskModal({
     setTags(task?.tags ?? []);
     setTagInput("");
     setComment("");
-  }, [open, task, defaultProjectId, defaultStatus, projects]);
+  }, [open, task, defaultProjectId, defaultStatus, parentTask, projects]);
 
   const members = useQuery({
     queryKey: ["project-members-profiles", projectId],
@@ -82,6 +86,19 @@ export function TaskModal({
     },
   });
 
+  const parentId = task?.parent_id ?? parentTask?.id ?? null;
+
+  const parent = useQuery({
+    queryKey: ["task-parent", parentId],
+    enabled: !!parentId,
+    queryFn: async () => {
+      const { data } = await supabase.from("tasks").select("id, title").eq("id", parentId!).maybeSingle();
+      return data as { id: string; title: string } | null;
+    },
+  });
+
+  const lockProject = !!parentTask || !!task?.parent_id;
+
   const save = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("no user");
@@ -99,7 +116,7 @@ export function TaskModal({
         const { error } = await supabase.from("tasks").update(payload).eq("id", task.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("tasks").insert({ ...payload, created_by: user.id });
+        const { error } = await supabase.from("tasks").insert({ ...payload, created_by: user.id, parent_id: parentTask?.id ?? null });
         if (error) throw error;
       }
     },
@@ -150,10 +167,15 @@ export function TaskModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{task ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
+          <DialogTitle>{task ? "Editar tarefa" : parentTask ? "Nova subtarefa" : "Nova tarefa"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {(parentTask || parent.data) && (
+            <div className="rounded-lg border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+              Subtarefa de <span className="font-medium text-foreground">{parentTask?.title ?? parent.data?.title}</span>
+            </div>
+          )}
           <div>
             <Label>Título</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="O que precisa ser feito?" />
@@ -166,7 +188,7 @@ export function TaskModal({
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <Label>Projeto</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
+              <Select value={projectId} onValueChange={setProjectId} disabled={lockProject}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -251,9 +273,12 @@ export function TaskModal({
         </div>
 
         <DialogFooter className="mt-4 flex-row justify-between sm:justify-between">
-          <div>
+          <div className="flex gap-2">
             {task && (
               <Button variant="destructive" onClick={() => remove.mutate()}>Excluir</Button>
+            )}
+            {task && onAddSubtask && (
+              <Button variant="outline" onClick={() => onAddSubtask(task)}>Adicionar subtarefa</Button>
             )}
           </div>
           <div className="flex gap-2">
