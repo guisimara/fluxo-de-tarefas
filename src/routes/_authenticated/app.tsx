@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-import { StatusSummary } from "@/components/status-summary";
 import { KanbanBoard } from "@/components/kanban-board";
 import { TaskListView, TaskTimelineView } from "@/components/task-views";
 import { TaskTree } from "@/components/task-tree";
@@ -128,8 +127,6 @@ function DashboardPage() {
           </Button>
         </div>
       </div>
-
-      <StatusSummary tasks={filtered} />
 
       {(projects.data ?? []).length > 0 && (
         <div className="mt-6 inline-flex rounded-lg border border-border bg-card p-1">

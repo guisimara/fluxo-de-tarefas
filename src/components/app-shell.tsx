@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  LayoutDashboard,
   KanbanSquare,
   FolderKanban,
   Package,
@@ -25,6 +26,7 @@ import { ProjectScopeProvider, useProjectScope } from "@/lib/project-scope";
 import type { Project } from "@/lib/tasks";
 
 const NAV = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/app", label: "Minhas Tarefas", icon: KanbanSquare },
   { to: "/projetos", label: "Projetos", icon: FolderKanban },
   { to: "/produtos", label: "Produtos", icon: Package },
@@ -63,7 +65,10 @@ function ProjectScopeSelector({ collapsed }: { collapsed: boolean }) {
     <div className="relative px-3 py-3">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-white transition hover:bg-white/10"
+        className={cn(
+          "flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-white transition hover:bg-white/10",
+          collapsed && "justify-center px-2",
+        )}
       >
         <span
           className="grid h-6 w-6 shrink-0 place-items-center rounded-md"
@@ -137,7 +142,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
             collapsed ? "w-20" : "w-64",
           )}
         >
-          <div className="flex h-16 shrink-0 items-center gap-2 border-b border-white/5 px-4">
+          <div className={cn("flex h-16 shrink-0 items-center gap-2 border-b border-white/5 px-4", collapsed && "justify-center px-0")}>
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-500 text-white shadow-[0_0_16px_2px_rgba(34,211,238,0.45)]">
               <KanbanSquare className="h-4 w-4" />
             </span>
@@ -160,6 +165,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
                   to={item.to}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
+                    collapsed && "justify-center px-0",
                     active ? "bg-cyan-400/10 font-medium text-cyan-300" : "text-slate-400 hover:bg-white/5 hover:text-slate-200",
                   )}
                 >
@@ -172,7 +178,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="shrink-0 space-y-1 border-t border-white/5 p-3">
-            <div className="rounded-lg bg-white/5 px-3 py-2">
+            <div className={cn("rounded-lg bg-white/5 px-3 py-2", collapsed && "flex justify-center px-0")}>
               {!collapsed ? (
                 <>
                   <div className="truncate text-sm text-white">{user?.email}</div>
@@ -186,13 +192,19 @@ function AppShellInner({ children }: { children: ReactNode }) {
             </div>
             <button
               onClick={signOut}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-slate-200",
+                collapsed && "justify-center px-0",
+              )}
             >
               <LogOut className="h-4 w-4 shrink-0" /> {!collapsed && "Sair"}
             </button>
             <button
               onClick={() => setCollapsed((v) => !v)}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-white/5 hover:text-slate-300",
+                collapsed && "justify-center px-0",
+              )}
             >
               {collapsed ? <ChevronsRight className="h-4 w-4 shrink-0" /> : <ChevronsLeft className="h-4 w-4 shrink-0" />}
               {!collapsed && "Recolher"}
