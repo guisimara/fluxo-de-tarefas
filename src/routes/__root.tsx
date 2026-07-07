@@ -77,14 +77,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Taskly — Gestor de tarefas simples e visual" },
+      { name: "description", content: "Organize suas tarefas, projetos e entregas em um só lugar. Simples, visual e prático." },
+      { property: "og:title", content: "Taskly — Gestor de tarefas simples e visual" },
+      { property: "og:description", content: "Organize suas tarefas, projetos e entregas em um só lugar." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
