@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Plus, Package, Trash2, Link2, Instagram, ShoppingCart, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -18,6 +19,7 @@ import {
   type Product,
   type ProductStatus,
   type SalesPlatform,
+  type TeamMember,
 } from "@/lib/tasks";
 import { ColorPicker } from "@/components/color-picker";
 import { cn } from "@/lib/utils";
@@ -30,12 +32,13 @@ const EMPTY_FORM = {
   name: "",
   description: "",
   projectLink: "",
-  salesPlatform: "" as SalesPlatform | "",
+  salesPlatforms: [] as SalesPlatform[],
   checkoutLink: "",
   instagram: "",
   suggestedPrice: "",
   color: "#3B82F6",
   status: "em_construcao" as ProductStatus,
+  memberIds: [] as string[],
 };
 
 function ProductsPage() {
@@ -52,6 +55,24 @@ function ProductsPage() {
       return (data ?? []) as Product[];
     },
   });
+
+  const team = useQuery({
+    queryKey: ["team-members"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("team_members").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as TeamMember[];
+    },
+  });
+
+  const togglePlatform = (platform: SalesPlatform) => {
+    setForm((f) => ({
+      ...f,
+      salesPlatforms: f.salesPlatforms.includes(platform)
+        ? f.salesPlatforms.filter((p) => p !== platform)
+        : [...f.salesPlatforms, platform],
+    }));
+  };
 
   const create = useMutation({
     mutationFn: async () => {
@@ -71,12 +92,26 @@ function ProductsPage() {
         owner_id: user.id,
         status: form.status,
         project_link: form.projectLink || null,
-        sales_platform: form.salesPlatform || null,
+        sales_platforms: form.salesPlatforms,
         checkout_link: form.checkoutLink || null,
         instagram: form.instagram || null,
         suggested_price: form.suggestedPrice ? Number(form.suggestedPrice) : null,
       });
       if (productError) throw productError;
+
+      const selectedMembers = (team.data ?? []).filter((m) => form.memberIds.includes(m.id));
+      if (selectedMembers.length > 0) {
+        const { error: membersError } = await supabase.from("project_members").insert(
+          selectedMembers.map((m) => ({
+            project_id: project.id,
+            invited_email: m.invited_email,
+            user_id: m.user_id,
+            role: "editor" as const,
+            status: m.user_id ? ("accepted" as const) : ("pending" as const),
+          })),
+        );
+        if (membersError) throw membersError;
+      }
     },
     onSuccess: () => {
       toast.success("Produto criado");
@@ -145,11 +180,11 @@ function ProductsPage() {
                     >
                       {PRODUCT_STATUS_LABEL[p.status]}
                     </span>
-                    {p.sales_platform && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-muted-foreground">
-                        <ShoppingCart className="h-3 w-3" /> {SALES_PLATFORM_LABEL[p.sales_platform]}
+                    {p.sales_platforms?.map((sp) => (
+                      <span key={sp} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-muted-foreground">
+                        <ShoppingCart className="h-3 w-3" /> {SALES_PLATFORM_LABEL[sp]}
                       </span>
-                    )}
+                    ))}
                     {p.suggested_price != null && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-muted-foreground">
                         <Tag className="h-3 w-3" /> R$ {Number(p.suggested_price).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
@@ -216,15 +251,15 @@ function ProductsPage() {
               <Input value={form.projectLink} onChange={(e) => setForm((f) => ({ ...f, projectLink: e.target.value }))} placeholder="https://..." />
             </div>
             <div>
-              <Label className="mb-2 block">Plataforma de venda</Label>
-              <Select value={form.salesPlatform} onValueChange={(v) => setForm((f) => ({ ...f, salesPlatform: v as SalesPlatform }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(SALES_PLATFORM_LABEL) as SalesPlatform[]).map((k) => (
-                    <SelectItem key={k} value={k}>{SALES_PLATFORM_LABEL[k]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="mb-2 block">Plataformas de venda</Label>
+              <div className="flex flex-wrap gap-4 rounded-lg border border-border bg-background px-3 py-2.5">
+                {(Object.keys(SALES_PLATFORM_LABEL) as SalesPlatform[]).map((k) => (
+                  <label key={k} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={form.salesPlatforms.includes(k)} onCheckedChange={() => togglePlatform(k)} />
+                    {SALES_PLATFORM_LABEL[k]}
+                  </label>
+                ))}
+              </div>
             </div>
             <div>
               <Label>Link do checkout</Label>
@@ -241,6 +276,16 @@ function ProductsPage() {
             <div>
               <Label className="mb-2 block">Cor</Label>
               <ColorPicker value={form.color} onChange={(color) => setForm((f) => ({ ...f, color }))} />
+            </div>
+            <div>
+              <Label className="mb-2 block">Adicionar membro (quem pode visualizar)</Label>
+              <MultiSelect
+                options={(team.data ?? []).map((m) => ({ value: m.id, label: m.name || m.invited_email }))}
+                selected={form.memberIds}
+                onChange={(memberIds) => setForm((f) => ({ ...f, memberIds }))}
+                placeholder="Nenhum membro adicionado"
+                emptyText="Cadastre colaboradores na página Equipe primeiro."
+              />
             </div>
           </div>
           <DialogFooter>

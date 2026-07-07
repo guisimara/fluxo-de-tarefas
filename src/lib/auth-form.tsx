@@ -34,3 +34,15 @@ export function AuthShell({
 }
 
 export { useNavigate };
+
+export function translateAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials")) return "Email ou senha incorretos.";
+  if (m.includes("email not confirmed")) return "Confirme seu email antes de entrar. Verifique sua caixa de entrada.";
+  if (m.includes("user already registered") || m.includes("already registered")) return "Já existe uma conta com esse email.";
+  if (m.includes("password should be at least")) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (m.includes("rate limit")) return "Muitas tentativas. Aguarde um momento e tente novamente.";
+  if (m.includes("failed to fetch") || m.includes("network")) return "Falha de conexão. Verifique sua internet e tente novamente.";
+  if (m.includes("invalid email")) return "Email inválido.";
+  return message;
+}

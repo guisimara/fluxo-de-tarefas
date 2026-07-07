@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronRight, Plus, Inbox } from "lucide-react";
 import { STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_CLASS, buildTaskTree, sortTasksPriorityThenDate, type Task, type TaskNode, type Project } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
+import { useToggleTaskDone, StatusDot } from "./task-views";
 
 function TreeNode({
   node,
@@ -19,6 +20,7 @@ function TreeNode({
   const [expanded, setExpanded] = useState(true);
   const token = STATUS_TOKEN[node.status];
   const hasChildren = node.children.length > 0;
+  const toggleDone = useToggleTaskDone();
   const children = sortTasksPriorityThenDate(node.children) as TaskNode[];
 
   return (
@@ -37,8 +39,9 @@ function TreeNode({
           <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition", expanded && "rotate-90")} />
         </button>
 
+        <StatusDot task={node} onToggle={(e) => { e.stopPropagation(); toggleDone.mutate(node); }} />
+
         <button onClick={() => onOpen(node)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-          <span className={cn("h-2 w-2 shrink-0 rounded-full", token.dot)} />
           <span className="truncate text-sm">{node.title}</span>
           {project && depth === 0 && (
             <span className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:inline-flex">

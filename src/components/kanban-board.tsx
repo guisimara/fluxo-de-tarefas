@@ -6,6 +6,7 @@ import { STATUS_ORDER, STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_CLAS
 import { Calendar as CalendarIcon, User, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskModal } from "./task-modal";
+import { useSidebarAutoCollapse } from "./app-shell";
 
 function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
@@ -109,11 +110,12 @@ export function KanbanBoard({ tasks, projects, defaultProjectId }: { tasks: Task
   };
 
   const active = tasks.find((t) => t.id === activeId);
+  const triggerSidebarCollapse = useSidebarAutoCollapse();
 
   return (
     <>
       <DndContext sensors={sensors} onDragStart={(e) => setActiveId(e.active.id as string)} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4" onScroll={(e) => triggerSidebarCollapse(e.currentTarget.scrollLeft)}>
           {STATUS_ORDER.map((s) => (
             <Column
               key={s}

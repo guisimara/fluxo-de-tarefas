@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Plus, FolderKanban, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import type { Project } from "@/lib/tasks";
+import type { Project, TeamMember } from "@/lib/tasks";
 import { ColorPicker } from "@/components/color-picker";
 
 export const Route = createFileRoute("/_authenticated/projetos")({
@@ -24,6 +25,7 @@ function ProjectsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#3B82F6");
+  const [memberIds, setMemberIds] = useState<string[]>([]);
 
   const projects = useQuery({
     queryKey: ["projects"],
@@ -34,16 +36,43 @@ function ProjectsPage() {
     },
   });
 
+  const team = useQuery({
+    queryKey: ["team-members"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("team_members").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as TeamMember[];
+    },
+  });
+
   const create = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error();
-      const { error } = await supabase.from("projects").insert({ name, description: description || null, color, owner_id: user.id });
+      const { data: project, error } = await supabase
+        .from("projects")
+        .insert({ name, description: description || null, color, owner_id: user.id })
+        .select()
+        .single();
       if (error) throw error;
+
+      const selectedMembers = (team.data ?? []).filter((m) => memberIds.includes(m.id));
+      if (selectedMembers.length > 0) {
+        const { error: membersError } = await supabase.from("project_members").insert(
+          selectedMembers.map((m) => ({
+            project_id: project.id,
+            invited_email: m.invited_email,
+            user_id: m.user_id,
+            role: "editor" as const,
+            status: m.user_id ? ("accepted" as const) : ("pending" as const),
+          })),
+        );
+        if (membersError) throw membersError;
+      }
     },
     onSuccess: () => {
       toast.success("Projeto criado");
       qc.invalidateQueries({ queryKey: ["projects"] });
-      setOpen(false); setName(""); setDescription(""); setColor("#3B82F6");
+      setOpen(false); setName(""); setDescription(""); setColor("#3B82F6"); setMemberIds([]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -113,6 +142,16 @@ function ProjectsPage() {
             <div><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Site institucional" /></div>
             <div><Label>Descrição</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
             <div><Label className="mb-2 block">Cor</Label><ColorPicker value={color} onChange={setColor} /></div>
+            <div>
+              <Label className="mb-2 block">Adicionar membro</Label>
+              <MultiSelect
+                options={(team.data ?? []).map((m) => ({ value: m.id, label: m.name || m.invited_email }))}
+                selected={memberIds}
+                onChange={setMemberIds}
+                placeholder="Nenhum membro adicionado"
+                emptyText="Cadastre colaboradores na página Equipe primeiro."
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

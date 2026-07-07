@@ -1,6 +1,50 @@
+import type { MouseEvent } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_CLASS, sortTasksPriorityThenDate, type Task, type Project } from "@/lib/tasks";
-import { Calendar as CalendarIcon, User, Inbox } from "lucide-react";
+import { Calendar as CalendarIcon, User, Inbox, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export function useToggleTaskDone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (task: Task) => {
+      const status = task.status === "concluido" ? "aberto" : "concluido";
+      const { error } = await supabase.from("tasks").update({ status }).eq("id", task.id);
+      if (error) throw error;
+    },
+    onMutate: async (task) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const previous = qc.getQueriesData<Task[]>({ queryKey: ["tasks"] });
+      const status = task.status === "concluido" ? "aberto" : "concluido";
+      qc.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
+        old ? old.map((t) => (t.id === task.id ? { ...t, status } : t)) : old
+      );
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      ctx?.previous.forEach(([k, v]) => qc.setQueryData(k, v));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
+export function StatusDot({ task, onToggle }: { task: Task; onToggle: (e: MouseEvent<HTMLButtonElement>) => void }) {
+  const token = STATUS_TOKEN[task.status];
+  const done = task.status === "concluido";
+  return (
+    <button
+      onClick={onToggle}
+      title={done ? "Reabrir tarefa" : "Concluir tarefa"}
+      className={cn(
+        "grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 bg-transparent transition hover:scale-110",
+        done ? "border-status-done-fg bg-status-done-fg" : token.dotBorder,
+      )}
+    >
+      {done && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+    </button>
+  );
+}
 
 function ProjectDot({ project }: { project?: Project }) {
   if (!project) return null;
@@ -14,12 +58,13 @@ function ProjectDot({ project }: { project?: Project }) {
 
 function TaskRow({ task, project, onClick }: { task: Task; project?: Project; onClick: () => void }) {
   const token = STATUS_TOKEN[task.status];
+  const toggleDone = useToggleTaskDone();
   return (
     <div
       onClick={onClick}
       className="flex cursor-pointer flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md sm:flex-nowrap"
     >
-      <span className={cn("h-2 w-2 shrink-0 rounded-full", token.dot)} />
+      <StatusDot task={task} onToggle={(e) => { e.stopPropagation(); toggleDone.mutate(task); }} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{task.title}</div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2">

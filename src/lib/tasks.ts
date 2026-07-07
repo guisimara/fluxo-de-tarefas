@@ -9,12 +9,12 @@ export const STATUS_LABEL: Record<Status, string> = {
   concluido: "Concluído",
 };
 
-export const STATUS_TOKEN: Record<Status, { bg: string; fg: string; dot: string }> = {
-  aberto: { bg: "bg-status-open", fg: "text-status-open-fg", dot: "bg-[#60A5FA]" },
-  pendente: { bg: "bg-status-pending", fg: "text-status-pending-fg", dot: "bg-[#FBBF24]" },
-  para_produzir: { bg: "bg-status-produce", fg: "text-status-produce-fg", dot: "bg-[#C084FC]" },
-  em_andamento: { bg: "bg-status-progress", fg: "text-status-progress-fg", dot: "bg-[#FB923C]" },
-  concluido: { bg: "bg-status-done", fg: "text-status-done-fg", dot: "bg-[#4ADE80]" },
+export const STATUS_TOKEN: Record<Status, { bg: string; fg: string; dot: string; dotBorder: string }> = {
+  aberto: { bg: "bg-status-open", fg: "text-status-open-fg", dot: "bg-[#60A5FA]", dotBorder: "border-[#60A5FA]" },
+  pendente: { bg: "bg-status-pending", fg: "text-status-pending-fg", dot: "bg-[#FBBF24]", dotBorder: "border-[#FBBF24]" },
+  para_produzir: { bg: "bg-status-produce", fg: "text-status-produce-fg", dot: "bg-[#C084FC]", dotBorder: "border-[#C084FC]" },
+  em_andamento: { bg: "bg-status-progress", fg: "text-status-progress-fg", dot: "bg-[#FB923C]", dotBorder: "border-[#FB923C]" },
+  concluido: { bg: "bg-status-done", fg: "text-status-done-fg", dot: "bg-[#4ADE80]", dotBorder: "border-[#4ADE80]" },
 };
 
 export const PRIORITY_LABEL = { baixa: "Baixa", media: "Média", alta: "Alta" } as const;
@@ -87,6 +87,13 @@ export interface Profile {
   avatar_url: string | null;
 }
 
+export interface TaskMember {
+  id: string;
+  task_id: string;
+  user_id: string;
+  created_at: string;
+}
+
 export type ProductStatus = "em_construcao" | "ativo";
 export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
   em_construcao: "Em construção",
@@ -110,7 +117,7 @@ export interface Product {
   owner_id: string;
   status: ProductStatus;
   project_link: string | null;
-  sales_platform: SalesPlatform | null;
+  sales_platforms: SalesPlatform[];
   checkout_link: string | null;
   instagram: string | null;
   suggested_price: number | null;

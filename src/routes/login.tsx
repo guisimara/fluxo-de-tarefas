@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AuthShell } from "@/lib/auth-form";
+import { AuthShell, translateAuthError } from "@/lib/auth-form";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -18,11 +18,16 @@ function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Bem-vindo de volta!");
-    navigate({ to: "/app" });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return toast.error(translateAuthError(error.message));
+      toast.success("Bem-vindo de volta!");
+      navigate({ to: "/app" });
+    } catch (err) {
+      toast.error(err instanceof Error ? translateAuthError(err.message) : "Erro inesperado ao entrar. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

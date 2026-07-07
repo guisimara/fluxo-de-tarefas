@@ -21,10 +21,10 @@ export const Route = createFileRoute("/_authenticated/app")({
 });
 
 const VIEWS = [
+  { id: "tree", label: "Árvore", icon: GitBranch },
   { id: "list", label: "Lista", icon: List },
   { id: "kanban", label: "Kanban", icon: KanbanSquare },
   { id: "timeline", label: "Timeline", icon: GanttChartSquare },
-  { id: "tree", label: "Árvore", icon: GitBranch },
 ] as const;
 type ViewMode = (typeof VIEWS)[number]["id"];
 

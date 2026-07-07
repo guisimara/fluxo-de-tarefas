@@ -17,8 +17,8 @@ export const Route = createFileRoute("/_authenticated/projetos_/$id")({
 });
 
 const VIEWS = [
-  { id: "kanban", label: "Kanban", icon: KanbanSquare },
   { id: "tree", label: "Árvore", icon: GitBranch },
+  { id: "kanban", label: "Kanban", icon: KanbanSquare },
 ] as const;
 type ViewMode = (typeof VIEWS)[number]["id"];
 

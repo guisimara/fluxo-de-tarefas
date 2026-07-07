@@ -26,7 +26,7 @@ export type Database = {
           owner_id: string
           project_id: string
           project_link: string | null
-          sales_platform: Database["public"]["Enums"]["sales_platform"] | null
+          sales_platforms: Database["public"]["Enums"]["sales_platform"][]
           status: Database["public"]["Enums"]["product_status"]
           suggested_price: number | null
           updated_at: string
@@ -42,7 +42,7 @@ export type Database = {
           owner_id: string
           project_id: string
           project_link?: string | null
-          sales_platform?: Database["public"]["Enums"]["sales_platform"] | null
+          sales_platforms?: Database["public"]["Enums"]["sales_platform"][]
           status?: Database["public"]["Enums"]["product_status"]
           suggested_price?: number | null
           updated_at?: string
@@ -58,7 +58,7 @@ export type Database = {
           owner_id?: string
           project_id?: string
           project_link?: string | null
-          sales_platform?: Database["public"]["Enums"]["sales_platform"] | null
+          sales_platforms?: Database["public"]["Enums"]["sales_platform"][]
           status?: Database["public"]["Enums"]["product_status"]
           suggested_price?: number | null
           updated_at?: string
@@ -353,6 +353,42 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_members: {
+        Row: {
+          created_at: string
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_members_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AuthShell } from "@/lib/auth-form";
+import { AuthShell, translateAuthError } from "@/lib/auth-form";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/cadastro")({
@@ -22,15 +22,25 @@ function SignupPage() {
     if (password !== confirm) return toast.error("As senhas não coincidem");
     if (password.length < 6) return toast.error("A senha precisa ter pelo menos 6 caracteres");
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name }, emailRedirectTo: window.location.origin + "/app" },
-    });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Conta criada com sucesso!");
-    navigate({ to: "/app" });
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name }, emailRedirectTo: window.location.origin + "/app" },
+      });
+      if (error) return toast.error(translateAuthError(error.message));
+      if (data.user && !data.session) {
+        toast.success("Conta criada! Verifique seu email para confirmar antes de entrar.");
+        navigate({ to: "/login" });
+        return;
+      }
+      toast.success("Conta criada com sucesso!");
+      navigate({ to: "/app" });
+    } catch (err) {
+      toast.error(err instanceof Error ? translateAuthError(err.message) : "Erro inesperado ao criar a conta. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { STATUS_ORDER, STATUS_LABEL, type Status, type Task, type Project, type Profile } from "@/lib/tasks";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -42,6 +43,7 @@ export function TaskModal({
   const [priority, setPriority] = useState<"baixa" | "media" | "alta">("media");
   const [dueDate, setDueDate] = useState("");
   const [assigneeId, setAssigneeId] = useState<string>("");
+  const [memberIds, setMemberIds] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [comment, setComment] = useState("");
@@ -55,6 +57,7 @@ export function TaskModal({
     setPriority(task?.priority ?? "media");
     setDueDate(task?.due_date ?? "");
     setAssigneeId(task?.assignee_id ?? "");
+    setMemberIds([]);
     setTags(task?.tags ?? []);
     setTagInput("");
     setComment("");
@@ -72,6 +75,25 @@ export function TaskModal({
       return (profiles ?? []) as Profile[];
     },
   });
+
+  const taskMembers = useQuery({
+    queryKey: ["task-members", task?.id],
+    enabled: !!task?.id && open,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task_members").select("user_id").eq("task_id", task!.id);
+      if (error) throw error;
+      return (data ?? []).map((m) => m.user_id);
+    },
+  });
+
+  useEffect(() => {
+    if (!open || !taskMembers.data) return;
+    setMemberIds(Array.from(new Set([...taskMembers.data, ...(task?.assignee_id ? [task.assignee_id] : [])])));
+  }, [open, taskMembers.data, task?.assignee_id]);
+
+  useEffect(() => {
+    if (assigneeId && !memberIds.includes(assigneeId)) setAssigneeId("");
+  }, [memberIds, assigneeId]);
 
   const comments = useQuery({
     queryKey: ["task-comments", task?.id],
@@ -112,17 +134,33 @@ export function TaskModal({
         assignee_id: assigneeId || null,
         tags,
       };
+      let taskId = task?.id;
       if (task) {
         const { error } = await supabase.from("tasks").update(payload).eq("id", task.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("tasks").insert({ ...payload, created_by: user.id, parent_id: parentTask?.id ?? null });
+        const { data: created, error } = await supabase
+          .from("tasks")
+          .insert({ ...payload, created_by: user.id, parent_id: parentTask?.id ?? null })
+          .select()
+          .single();
         if (error) throw error;
+        taskId = created.id;
+      }
+
+      const { error: deleteError } = await supabase.from("task_members").delete().eq("task_id", taskId!);
+      if (deleteError) throw deleteError;
+      if (memberIds.length > 0) {
+        const { error: insertError } = await supabase.from("task_members").insert(
+          memberIds.map((user_id) => ({ task_id: taskId!, user_id })),
+        );
+        if (insertError) throw insertError;
       }
     },
     onSuccess: () => {
       toast.success(task ? "Tarefa atualizada" : "Tarefa criada");
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task-members"] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -165,7 +203,7 @@ export function TaskModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[58.8rem] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{task ? "Editar tarefa" : parentTask ? "Nova subtarefa" : "Nova tarefa"}</DialogTitle>
         </DialogHeader>
@@ -220,16 +258,31 @@ export function TaskModal({
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
             <div className="md:col-span-2">
-              <Label>Responsável</Label>
+              <Label className="mb-2 block">Adicionar membro</Label>
+              <MultiSelect
+                options={(members.data ?? []).map((m) => ({ value: m.id, label: m.name || m.email || m.id }))}
+                selected={memberIds}
+                onChange={setMemberIds}
+                placeholder="Nenhum membro adicionado"
+                emptyText="Convide membros nesse projeto primeiro."
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Delegar (responsável principal)</Label>
               <Select value={assigneeId || "none"} onValueChange={(v) => setAssigneeId(v === "none" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Sem responsável" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sem responsável</SelectItem>
-                  {(members.data ?? []).map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name || m.email}</SelectItem>
-                  ))}
+                  {(members.data ?? [])
+                    .filter((m) => memberIds.includes(m.id))
+                    .map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name || m.email}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
+              {memberIds.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">Adicione membros acima para poder delegar a tarefa.</p>
+              )}
             </div>
           </div>
 
