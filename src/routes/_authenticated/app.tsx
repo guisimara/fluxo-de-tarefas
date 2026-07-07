@@ -4,20 +4,33 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { StatusSummary } from "@/components/status-summary";
 import { KanbanBoard } from "@/components/kanban-board";
+import { TaskListView, TaskTimelineView } from "@/components/task-views";
 import { TaskModal } from "@/components/task-modal";
 import { InviteModal } from "@/components/invite-modal";
 import { Button } from "@/components/ui/button";
-import { Plus, UserPlus } from "lucide-react";
+import { Plus, UserPlus, List, KanbanSquare, GanttChartSquare } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import type { Task, Project } from "@/lib/tasks";
 
 export const Route = createFileRoute("/_authenticated/app")({
   component: DashboardPage,
 });
 
+const VIEWS = [
+  { id: "list", label: "Lista", icon: List },
+  { id: "kanban", label: "Kanban", icon: KanbanSquare },
+  { id: "timeline", label: "Timeline", icon: GanttChartSquare },
+] as const;
+type ViewMode = (typeof VIEWS)[number]["id"];
+
 function DashboardPage() {
   const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [view, setView] = useState<ViewMode>("kanban");
   const [taskOpen, setTaskOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -41,9 +54,24 @@ function DashboardPage() {
     },
   });
 
-  const filtered = (tasks.data ?? []).filter((t) =>
-    !search || t.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = (tasks.data ?? []).filter((t) => {
+    if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+    if (dateFilter !== "all") {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const due = t.due_date ? new Date(t.due_date + "T00:00:00") : null;
+      if (dateFilter === "sem_prazo" && due) return false;
+      if (dateFilter === "atrasadas" && !(due && due < today)) return false;
+      if (dateFilter === "hoje" && !(due && due.getTime() === today.getTime())) return false;
+      if (dateFilter === "semana") {
+        const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+        if (!(due && due >= today && due <= weekEnd)) return false;
+      }
+    }
+    return true;
+  });
+
+  const openTask = (t: Task) => { setEditingTask(t); setTaskOpen(true); };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
@@ -60,10 +88,29 @@ function DashboardPage() {
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
           />
           <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os projetos</SelectItem>
               {(projects.data ?? []).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toda prioridade</SelectItem>
+              <SelectItem value="alta">Alta</SelectItem>
+              <SelectItem value="media">Média</SelectItem>
+              <SelectItem value="baixa">Baixa</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as datas</SelectItem>
+              <SelectItem value="hoje">Hoje</SelectItem>
+              <SelectItem value="semana">Próximos 7 dias</SelectItem>
+              <SelectItem value="atrasadas">Atrasadas</SelectItem>
+              <SelectItem value="sem_prazo">Sem prazo</SelectItem>
             </SelectContent>
           </Select>
           {projectFilter !== "all" && (
@@ -71,7 +118,7 @@ function DashboardPage() {
               <UserPlus className="mr-2 h-4 w-4" /> Convidar
             </Button>
           )}
-          <Button onClick={() => setTaskOpen(true)} disabled={(projects.data ?? []).length === 0}>
+          <Button onClick={() => { setEditingTask(null); setTaskOpen(true); }} disabled={(projects.data ?? []).length === 0}>
             <Plus className="mr-2 h-4 w-4" /> Nova tarefa
           </Button>
         </div>
@@ -79,27 +126,49 @@ function DashboardPage() {
 
       <StatusSummary tasks={filtered} />
 
-      <div className="mt-6">
+      {(projects.data ?? []).length > 0 && (
+        <div className="mt-6 inline-flex rounded-lg border border-border bg-card p-1">
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition",
+                view === v.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <v.icon className="h-4 w-4" /> {v.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4">
         {(projects.data ?? []).length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
             <h3 className="text-lg font-medium">Comece criando um projeto</h3>
             <p className="mt-1 text-sm text-muted-foreground">Você precisa de um projeto para começar a organizar suas tarefas.</p>
             <Button className="mt-4" asChild>
-              <a href="/app/projetos">Criar meu primeiro projeto</a>
+              <a href="/projetos">Criar meu primeiro projeto</a>
             </Button>
           </div>
-        ) : (
+        ) : view === "kanban" ? (
           <KanbanBoard
             tasks={filtered}
             projects={projects.data ?? []}
             defaultProjectId={projectFilter !== "all" ? projectFilter : undefined}
           />
+        ) : view === "list" ? (
+          <TaskListView tasks={filtered} projects={projects.data ?? []} onOpen={openTask} />
+        ) : (
+          <TaskTimelineView tasks={filtered} projects={projects.data ?? []} onOpen={openTask} />
         )}
       </div>
 
       <TaskModal
         open={taskOpen}
-        onOpenChange={setTaskOpen}
+        onOpenChange={(v) => { setTaskOpen(v); if (!v) setEditingTask(null); }}
+        task={editingTask}
         projects={projects.data ?? []}
         defaultProjectId={projectFilter !== "all" ? projectFilter : undefined}
       />

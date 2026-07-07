@@ -46,6 +46,7 @@ export interface Project {
   id: string;
   name: string;
   description: string | null;
+  color: string;
   owner_id: string;
   created_at: string;
   updated_at: string;
@@ -66,4 +67,47 @@ export interface Profile {
   name: string | null;
   email: string | null;
   avatar_url: string | null;
+}
+
+export interface Product {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const ORG_ROLE_LABEL = {
+  admin: "Admin",
+  gestor: "Gestor",
+  lider: "Líder",
+  operacional: "Operacional",
+} as const;
+export type OrgRole = keyof typeof ORG_ROLE_LABEL;
+
+export interface TeamMember {
+  id: string;
+  owner_id: string;
+  user_id: string | null;
+  invited_email: string;
+  name: string | null;
+  role: OrgRole;
+  created_at: string;
+  updated_at: string;
+}
+
+export const PRIORITY_WEIGHT: Record<Priority, number> = { alta: 0, media: 1, baixa: 2 };
+
+export function sortTasksPriorityThenDate(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    const pw = PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority];
+    if (pw !== 0) return pw;
+    if (!a.due_date && !b.due_date) return 0;
+    if (!a.due_date) return 1;
+    if (!b.due_date) return -1;
+    return a.due_date.localeCompare(b.due_date);
+  });
 }

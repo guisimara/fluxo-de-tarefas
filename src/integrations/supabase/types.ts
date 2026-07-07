@@ -14,6 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      products: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          created_at: string
+          id: string
+          invited_email: string
+          name: string | null
+          owner_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_email: string
+          name?: string | null
+          owner_id: string
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_email?: string
+          name?: string | null
+          owner_id?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -88,6 +184,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          color: string
           created_at: string
           description: string | null
           id: string
@@ -96,6 +193,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          color?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -104,6 +202,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          color?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -247,6 +346,7 @@ export type Database = {
     Enums: {
       member_role: "admin" | "editor" | "viewer"
       member_status: "pending" | "accepted"
+      org_role: "admin" | "gestor" | "lider" | "operacional"
       task_priority: "baixa" | "media" | "alta"
       task_status:
         | "aberto"
@@ -383,6 +483,7 @@ export const Constants = {
     Enums: {
       member_role: ["admin", "editor", "viewer"],
       member_status: ["pending", "accepted"],
+      org_role: ["admin", "gestor", "lider", "operacional"],
       task_priority: ["baixa", "media", "alta"],
       task_status: [
         "aberto",

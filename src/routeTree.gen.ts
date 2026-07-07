@@ -16,6 +16,7 @@ import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedProjetosRouteImport } from './routes/_authenticated/projetos'
+import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCalendarioRouteImport } from './routes/_authenticated/calendario'
@@ -56,6 +57,11 @@ const AuthenticatedProjetosRoute = AuthenticatedProjetosRouteImport.update({
   path: '/projetos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProdutosRoute = AuthenticatedProdutosRouteImport.update({
+  id: '/produtos',
+  path: '/produtos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedEquipeRoute = AuthenticatedEquipeRouteImport.update({
   id: '/equipe',
   path: '/equipe',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/calendario': typeof AuthenticatedCalendarioRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/equipe': typeof AuthenticatedEquipeRoute
+  '/produtos': typeof AuthenticatedProdutosRoute
   '/projetos': typeof AuthenticatedProjetosRouteWithChildren
   '/projetos/$id': typeof AuthenticatedProjetosIdRoute
 }
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/calendario': typeof AuthenticatedCalendarioRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/equipe': typeof AuthenticatedEquipeRoute
+  '/produtos': typeof AuthenticatedProdutosRoute
   '/projetos': typeof AuthenticatedProjetosRouteWithChildren
   '/projetos/$id': typeof AuthenticatedProjetosIdRoute
 }
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/_authenticated/calendario': typeof AuthenticatedCalendarioRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
+  '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/projetos': typeof AuthenticatedProjetosRouteWithChildren
   '/_authenticated/projetos/$id': typeof AuthenticatedProjetosIdRoute
 }
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/configuracoes'
     | '/equipe'
+    | '/produtos'
     | '/projetos'
     | '/projetos/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/configuracoes'
     | '/equipe'
+    | '/produtos'
     | '/projetos'
     | '/projetos/$id'
   id:
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/_authenticated/calendario'
     | '/_authenticated/configuracoes'
     | '/_authenticated/equipe'
+    | '/_authenticated/produtos'
     | '/_authenticated/projetos'
     | '/_authenticated/projetos/$id'
   fileRoutesById: FileRoutesById
@@ -227,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjetosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/produtos': {
+      id: '/_authenticated/produtos'
+      path: '/produtos'
+      fullPath: '/produtos'
+      preLoaderRoute: typeof AuthenticatedProdutosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/equipe': {
       id: '/_authenticated/equipe'
       path: '/equipe'
@@ -283,6 +302,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCalendarioRoute: typeof AuthenticatedCalendarioRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
+  AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedProjetosRoute: typeof AuthenticatedProjetosRouteWithChildren
 }
 
@@ -291,6 +311,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCalendarioRoute: AuthenticatedCalendarioRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
+  AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedProjetosRoute: AuthenticatedProjetosRouteWithChildren,
 }
 
@@ -308,3 +329,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

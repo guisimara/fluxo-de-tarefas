@@ -1,20 +1,42 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarDays } from "lucide-react";
-import { STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_CLASS, type Task } from "@/lib/tasks";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { STATUS_TOKEN, type Task, type Project } from "@/lib/tasks";
+import { TaskModal } from "@/components/task-modal";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendario")({
   component: CalendarPage,
 });
 
+const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function toKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function CalendarPage() {
+  const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); return d; });
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskOpen, setTaskOpen] = useState(false);
+
   const tasks = useQuery({
     queryKey: ["tasks-due"],
     queryFn: async () => {
       const { data } = await supabase.from("tasks").select("*").not("due_date", "is", null).order("due_date", { ascending: true });
       return (data ?? []) as Task[];
+    },
+  });
+
+  const projects = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Project[];
     },
   });
 
@@ -25,50 +47,95 @@ function CalendarPage() {
     byDate.get(k)!.push(t);
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const gridStart = new Date(firstOfMonth);
+  gridStart.setDate(gridStart.getDate() - firstOfMonth.getDay());
+
+  const days: Date[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    days.push(d);
+  }
+
+  const todayKey = toKey(new Date());
+  const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Calendário</h1>
-        <p className="text-sm text-muted-foreground">Tarefas com prazo, agrupadas por data.</p>
+    <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Calendário</h1>
+          <p className="text-sm text-muted-foreground">Tarefas com prazo, em visão mensal.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => setCursor((c) => { const d = new Date(c); d.setMonth(d.getMonth() - 1); return d; })}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="w-40 text-center text-sm font-medium capitalize">{monthLabel}</span>
+          <Button variant="outline" size="icon" onClick={() => setCursor((c) => { const d = new Date(c); d.setMonth(d.getMonth() + 1); return d; })}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={() => { const d = new Date(); d.setDate(1); setCursor(d); }}>Hoje</Button>
+        </div>
       </div>
-      {byDate.size === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-          <CalendarDays className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="text-muted-foreground">Nenhuma tarefa com prazo definido.</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {Array.from(byDate.entries()).map(([date, list]) => {
-            const overdue = date < today;
-            return (
-              <div key={date}>
-                <div className={cn("mb-2 text-sm font-medium", overdue ? "text-destructive" : "text-foreground")}>
-                  {new Date(date + "T12:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
-                  {overdue && <span className="ml-2 text-xs">(atrasado)</span>}
-                </div>
-                <div className="space-y-2">
-                  {list.map((t) => {
-                    const token = STATUS_TOKEN[t.status];
-                    return (
-                      <div key={t.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm">
-                        <div>
-                          <div className="font-medium">{t.title}</div>
-                          <div className="mt-1 flex items-center gap-2 text-xs">
-                            <span className={cn("rounded-full px-2 py-0.5", token.bg, token.fg)}>{STATUS_LABEL[t.status]}</span>
-                            <span className={cn("rounded-full border px-2 py-0.5", PRIORITY_CLASS[t.priority])}>{PRIORITY_LABEL[t.priority]}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+
+      <div className="grid grid-cols-7 overflow-hidden rounded-2xl border border-border bg-card">
+        {WEEKDAYS.map((w) => (
+          <div key={w} className="border-b border-border bg-muted/40 px-2 py-2 text-center text-xs font-medium text-muted-foreground">
+            {w}
+          </div>
+        ))}
+        {days.map((d) => {
+          const key = toKey(d);
+          const inMonth = d.getMonth() === month;
+          const isToday = key === todayKey;
+          const dayTasks = byDate.get(key) ?? [];
+          return (
+            <div
+              key={key}
+              className={cn(
+                "min-h-[110px] border-b border-r border-border p-1.5 last:border-r-0 [&:nth-child(7n)]:border-r-0",
+                !inMonth && "bg-muted/20",
+              )}
+            >
+              <div className={cn(
+                "mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs",
+                isToday ? "bg-primary text-primary-foreground font-semibold" : inMonth ? "text-foreground" : "text-muted-foreground",
+              )}>
+                {d.getDate()}
               </div>
-            );
-          })}
-        </div>
-      )}
+              <div className="space-y-1">
+                {dayTasks.slice(0, 3).map((t) => {
+                  const token = STATUS_TOKEN[t.status];
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => { setSelectedTask(t); setTaskOpen(true); }}
+                      className={cn("flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px]", token.bg, token.fg)}
+                      title={t.title}
+                    >
+                      <span className="truncate">{t.title}</span>
+                    </button>
+                  );
+                })}
+                {dayTasks.length > 3 && (
+                  <div className="px-1.5 text-[10px] text-muted-foreground">+{dayTasks.length - 3} mais</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <TaskModal
+        open={taskOpen}
+        onOpenChange={(v) => { setTaskOpen(v); if (!v) setSelectedTask(null); }}
+        task={selectedTask}
+        projects={projects.data ?? []}
+      />
     </div>
   );
 }
