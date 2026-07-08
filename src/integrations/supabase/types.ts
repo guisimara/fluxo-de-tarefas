@@ -289,6 +289,7 @@ export type Database = {
           position: number
           priority: Database["public"]["Enums"]["task_priority"]
           project_id: string
+          recurrence: Json | null
           status: Database["public"]["Enums"]["task_status"]
           tags: Json
           title: string
@@ -305,6 +306,7 @@ export type Database = {
           position?: number
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id: string
+          recurrence?: Json | null
           status?: Database["public"]["Enums"]["task_status"]
           tags?: Json
           title: string
@@ -321,6 +323,7 @@ export type Database = {
           position?: number
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string
+          recurrence?: Json | null
           status?: Database["public"]["Enums"]["task_status"]
           tags?: Json
           title?: string

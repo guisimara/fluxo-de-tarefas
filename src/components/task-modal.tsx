@@ -9,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { STATUS_ORDER, STATUS_LABEL, type Status, type Task, type Project, type Profile } from "@/lib/tasks";
+import { STATUS_ORDER, STATUS_LABEL, type Status, type Task, type Project, type Profile, type Recurrence } from "@/lib/tasks";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { X } from "lucide-react";
+import { RecurrencePicker } from "@/components/recurrence-picker";
 
 export function TaskModal({
   open,
@@ -42,6 +43,7 @@ export function TaskModal({
   const [status, setStatus] = useState<Status>("aberto");
   const [priority, setPriority] = useState<"baixa" | "media" | "alta">("media");
   const [dueDate, setDueDate] = useState("");
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(null);
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
@@ -56,6 +58,7 @@ export function TaskModal({
     setStatus(task?.status ?? defaultStatus ?? "aberto");
     setPriority(task?.priority ?? "media");
     setDueDate(task?.due_date ?? "");
+    setRecurrence(task?.recurrence ?? null);
     setAssigneeId(task?.assignee_id ?? "");
     setMemberIds([]);
     setTags(task?.tags ?? []);
@@ -131,6 +134,7 @@ export function TaskModal({
         status,
         priority,
         due_date: dueDate || null,
+        recurrence: recurrence as never,
         assignee_id: assigneeId || null,
         tags,
       };
@@ -139,9 +143,15 @@ export function TaskModal({
         const { error } = await supabase.from("tasks").update(payload).eq("id", task.id);
         if (error) throw error;
       } else {
+        const parentId = parentTask?.id ?? null;
+        let q = supabase.from("tasks").select("position").eq("project_id", projectId).order("position", { ascending: false }).limit(1);
+        q = parentId ? q.eq("parent_id", parentId) : q.is("parent_id", null);
+        const { data: last } = await q;
+        const position = (last?.[0]?.position ?? -1) + 1;
+
         const { data: created, error } = await supabase
           .from("tasks")
-          .insert({ ...payload, created_by: user.id, parent_id: parentTask?.id ?? null })
+          .insert({ ...payload, created_by: user.id, parent_id: parentId, position })
           .select()
           .single();
         if (error) throw error;
@@ -256,6 +266,10 @@ export function TaskModal({
             <div>
               <Label>Prazo</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+            <div>
+              <Label className="mb-2 block">Repetição</Label>
+              <RecurrencePicker value={recurrence} onChange={setRecurrence} dueDate={dueDate || undefined} />
             </div>
             <div className="md:col-span-2">
               <Label className="mb-2 block">Adicionar membro</Label>

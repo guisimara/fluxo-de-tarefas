@@ -26,6 +26,23 @@ export const PRIORITY_CLASS: Record<"baixa" | "media" | "alta", string> = {
 
 export type Priority = "baixa" | "media" | "alta";
 
+export type RecurrenceFreq = "daily" | "weekly" | "monthly";
+export type MonthlyRecurrenceMode = "day_of_month" | "weekday_of_month";
+
+export interface Recurrence {
+  freq: RecurrenceFreq;
+  interval: number;
+  /** 0 = domingo ... 6 = sábado. Usado quando freq === "weekly". */
+  byWeekday?: number[];
+  /** Usado quando freq === "monthly". */
+  monthlyMode?: MonthlyRecurrenceMode;
+  /** Data (yyyy-mm-dd) até quando repetir. null/undefined = sem fim. */
+  until?: string | null;
+}
+
+export const WEEKDAY_SHORT = ["D", "S", "T", "Q", "Q", "S", "S"];
+export const WEEKDAY_FULL = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
 export interface Task {
   id: string;
   project_id: string;
@@ -39,6 +56,7 @@ export interface Task {
   created_by: string;
   tags: string[];
   position: number;
+  recurrence: Recurrence | null;
   created_at: string;
   updated_at: string;
 }
@@ -155,4 +173,95 @@ export function sortTasksPriorityThenDate(tasks: Task[]): Task[] {
     if (!b.due_date) return -1;
     return a.due_date.localeCompare(b.due_date);
   });
+}
+
+/**
+ * Ordem padrão do gerenciador: tarefas com prazo aparecem primeiro, ordenadas
+ * pela data; tarefas sem prazo mantêm a ordem de criação (posição manual via
+ * drag-and-drop, com fallback para created_at quando a posição empata).
+ */
+export function sortTasksDefault(tasks: Task[]): Task[] {
+  const withDate = tasks.filter((t) => t.due_date);
+  const withoutDate = tasks.filter((t) => !t.due_date);
+  withDate.sort((a, b) => a.due_date!.localeCompare(b.due_date!));
+  withoutDate.sort((a, b) => {
+    if (a.position !== b.position) return a.position - b.position;
+    return a.created_at.localeCompare(b.created_at);
+  });
+  return [...withDate, ...withoutDate];
+}
+
+export function describeRecurrence(r: Recurrence): string {
+  const every = (unit: string, plural: string) => (r.interval <= 1 ? `${unit}` : `A cada ${r.interval} ${plural}`);
+  if (r.freq === "daily") return every("Diariamente", "dias");
+  if (r.freq === "weekly") {
+    const days = (r.byWeekday ?? []).slice().sort((a, b) => a - b).map((d) => WEEKDAY_SHORT[d]).join(", ");
+    const base = r.interval <= 1 ? "Semanalmente" : `A cada ${r.interval} semanas`;
+    return days ? `${base} (${days})` : base;
+  }
+  if (r.freq === "monthly") {
+    const base = r.interval <= 1 ? "Mensalmente" : `A cada ${r.interval} meses`;
+    return r.monthlyMode === "weekday_of_month" ? `${base}, mesmo dia da semana` : `${base}, mesmo dia do mês`;
+  }
+  return "Personalizado";
+}
+
+function nthWeekdayOfMonth(year: number, month: number, weekday: number, n: number): Date {
+  const first = new Date(year, month, 1);
+  const firstWeekday = first.getDay();
+  const offset = (weekday - firstWeekday + 7) % 7;
+  const day = 1 + offset + (n - 1) * 7;
+  return new Date(year, month, day);
+}
+
+function weekdayOccurrenceInMonth(date: Date): number {
+  return Math.floor((date.getDate() - 1) / 7) + 1;
+}
+
+/** Calcula a próxima data (yyyy-mm-dd) de ocorrência a partir da data atual da tarefa, ou null se a regra tiver expirado. */
+export function computeNextDueDate(currentDueDate: string, r: Recurrence): string | null {
+  const cur = new Date(currentDueDate + "T00:00:00");
+  let next: Date;
+
+  if (r.freq === "daily") {
+    next = new Date(cur);
+    next.setDate(next.getDate() + Math.max(1, r.interval));
+  } else if (r.freq === "weekly") {
+    const days = r.byWeekday && r.byWeekday.length > 0 ? [...r.byWeekday].sort((a, b) => a - b) : [cur.getDay()];
+    const curDow = cur.getDay();
+    const sameWeek = days.find((d) => d > curDow);
+    if (sameWeek !== undefined) {
+      next = new Date(cur);
+      next.setDate(cur.getDate() + (sameWeek - curDow));
+    } else {
+      const first = days[0];
+      const daysToAdd = 7 * Math.max(1, r.interval) - curDow + first;
+      next = new Date(cur);
+      next.setDate(cur.getDate() + daysToAdd);
+    }
+  } else {
+    // monthly
+    const interval = Math.max(1, r.interval);
+    if (r.monthlyMode === "weekday_of_month") {
+      const weekday = cur.getDay();
+      const occurrence = weekdayOccurrenceInMonth(cur);
+      const targetMonthDate = new Date(cur.getFullYear(), cur.getMonth() + interval, 1);
+      next = nthWeekdayOfMonth(targetMonthDate.getFullYear(), targetMonthDate.getMonth(), weekday, occurrence);
+    } else {
+      const day = cur.getDate();
+      const targetMonthDate = new Date(cur.getFullYear(), cur.getMonth() + interval, 1);
+      const daysInTargetMonth = new Date(targetMonthDate.getFullYear(), targetMonthDate.getMonth() + 1, 0).getDate();
+      next = new Date(targetMonthDate.getFullYear(), targetMonthDate.getMonth(), Math.min(day, daysInTargetMonth));
+    }
+  }
+
+  if (r.until) {
+    const until = new Date(r.until + "T00:00:00");
+    if (next > until) return null;
+  }
+
+  const y = next.getFullYear();
+  const m = String(next.getMonth() + 1).padStart(2, "0");
+  const d = String(next.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }

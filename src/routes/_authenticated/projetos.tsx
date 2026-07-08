@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import type { Project, TeamMember } from "@/lib/tasks";
 import { ColorPicker } from "@/components/color-picker";
+import { ProjectContextMenu } from "@/components/task-context-menu";
 
 export const Route = createFileRoute("/_authenticated/projetos")({
   component: ProjectsPage,
@@ -109,28 +110,35 @@ function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(projects.data ?? []).map((p) => (
-            <div key={p.id} className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md">
-              <div className="flex items-start justify-between">
-                <Link to="/projetos/$id" params={{ id: p.id }} className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="grid h-9 w-9 place-items-center rounded-lg"
-                      style={{ background: `${p.color}1A`, color: p.color }}
-                    >
-                      <FolderKanban className="h-4 w-4" />
+            <ProjectContextMenu
+              key={p.id}
+              project={p}
+              onEdit={() => {}}
+              onDelete={() => { if (confirm("Excluir este projeto?")) del.mutate(p.id); }}
+            >
+              <div className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md">
+                <div className="flex items-start justify-between">
+                  <Link to="/projetos/$id" params={{ id: p.id }} className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="grid h-9 w-9 place-items-center rounded-lg"
+                        style={{ background: `${p.color}1A`, color: p.color }}
+                      >
+                        <FolderKanban className="h-4 w-4" />
+                      </div>
+                      <h3 className="font-semibold">{p.name}</h3>
                     </div>
-                    <h3 className="font-semibold">{p.name}</h3>
-                  </div>
-                  {p.description && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.description}</p>}
-                  <div className="mt-4 text-xs text-muted-foreground">Criado em {new Date(p.created_at).toLocaleDateString("pt-BR")}</div>
-                </Link>
-                {p.owner_id === user?.id && (
-                  <button onClick={() => { if (confirm("Excluir este projeto?")) del.mutate(p.id); }} className="opacity-0 transition group-hover:opacity-100">
-                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </button>
-                )}
+                    {p.description && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.description}</p>}
+                    <div className="mt-4 text-xs text-muted-foreground">Criado em {new Date(p.created_at).toLocaleDateString("pt-BR")}</div>
+                  </Link>
+                  {p.owner_id === user?.id && (
+                    <button onClick={() => { if (confirm("Excluir este projeto?")) del.mutate(p.id); }} className="opacity-0 transition group-hover:opacity-100">
+                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            </ProjectContextMenu>
           ))}
         </div>
       )}

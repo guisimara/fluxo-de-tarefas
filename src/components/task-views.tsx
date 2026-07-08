@@ -1,9 +1,10 @@
 import type { MouseEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_CLASS, sortTasksPriorityThenDate, type Task, type Project } from "@/lib/tasks";
+import { STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_CLASS, sortTasksDefault, computeNextDueDate, type Task, type Project } from "@/lib/tasks";
 import { Calendar as CalendarIcon, User, Inbox, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TaskContextMenu } from "./task-context-menu";
 
 export function useToggleTaskDone() {
   const qc = useQueryClient();
@@ -12,6 +13,26 @@ export function useToggleTaskDone() {
       const status = task.status === "concluido" ? "aberto" : "concluido";
       const { error } = await supabase.from("tasks").update({ status }).eq("id", task.id);
       if (error) throw error;
+
+      if (status === "concluido" && task.recurrence && task.due_date) {
+        const nextDue = computeNextDueDate(task.due_date, task.recurrence);
+        if (nextDue) {
+          await supabase.from("tasks").insert({
+            title: task.title,
+            description: task.description,
+            project_id: task.project_id,
+            parent_id: task.parent_id,
+            status: "aberto",
+            priority: task.priority,
+            due_date: nextDue,
+            assignee_id: task.assignee_id,
+            tags: task.tags,
+            position: task.position,
+            recurrence: task.recurrence as never,
+            created_by: task.created_by,
+          });
+        }
+      }
     },
     onMutate: async (task) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
@@ -56,35 +77,38 @@ function ProjectDot({ project }: { project?: Project }) {
   );
 }
 
-function TaskRow({ task, project, onClick }: { task: Task; project?: Project; onClick: () => void }) {
+function TaskRow({ task, project, projects, onClick }: { task: Task; project?: Project; projects: Project[]; onClick: () => void }) {
   const token = STATUS_TOKEN[task.status];
   const toggleDone = useToggleTaskDone();
   return (
-    <div
-      onClick={onClick}
-      className="flex cursor-pointer flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md sm:flex-nowrap"
-    >
-      <StatusDot task={task} onToggle={(e) => { e.stopPropagation(); toggleDone.mutate(task); }} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{task.title}</div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-2">
-          <ProjectDot project={project} />
-          <span className={cn("rounded-full px-2 py-0.5 text-[11px]", token.bg, token.fg)}>{STATUS_LABEL[task.status]}</span>
+    <TaskContextMenu task={task} projects={projects} onEdit={onClick}>
+      <div
+        onClick={onClick}
+        className="flex cursor-pointer flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md sm:flex-nowrap"
+      >
+        <StatusDot task={task} onToggle={(e) => { e.stopPropagation(); toggleDone.mutate(task); }} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">{task.title}</div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+            <ProjectDot project={project} />
+            <span className={cn("rounded-full px-2 py-0.5 text-[11px]", token.bg, token.fg)}>{STATUS_LABEL[task.status]}</span>
+          </div>
+        </div>
+        <span className={cn("rounded-full border px-2 py-0.5 text-[11px] shrink-0", PRIORITY_CLASS[task.priority])}>
+          {PRIORITY_LABEL[task.priority]}
+        </span>
+        <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
+          {task.recurrence && <span title="Tarefa recorrente">↻</span>}
+          {task.due_date && (
+            <span className="flex items-center gap-1">
+              <CalendarIcon className="h-3 w-3" />
+              {new Date(task.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+            </span>
+          )}
+          {task.assignee_id && <User className="h-3 w-3" />}
         </div>
       </div>
-      <span className={cn("rounded-full border px-2 py-0.5 text-[11px] shrink-0", PRIORITY_CLASS[task.priority])}>
-        {PRIORITY_LABEL[task.priority]}
-      </span>
-      <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
-        {task.due_date && (
-          <span className="flex items-center gap-1">
-            <CalendarIcon className="h-3 w-3" />
-            {new Date(task.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-          </span>
-        )}
-        {task.assignee_id && <User className="h-3 w-3" />}
-      </div>
-    </div>
+    </TaskContextMenu>
   );
 }
 
@@ -99,7 +123,7 @@ function EmptyState() {
 }
 
 export function TaskListView({ tasks, projects, onOpen }: { tasks: Task[]; projects: Project[]; onOpen: (t: Task) => void }) {
-  const sorted = sortTasksPriorityThenDate(tasks);
+  const sorted = sortTasksDefault(tasks);
   const projectById = new Map(projects.map((p) => [p.id, p]));
 
   if (sorted.length === 0) return <EmptyState />;
@@ -107,7 +131,7 @@ export function TaskListView({ tasks, projects, onOpen }: { tasks: Task[]; proje
   return (
     <div className="space-y-2">
       {sorted.map((t) => (
-        <TaskRow key={t.id} task={t} project={projectById.get(t.project_id)} onClick={() => onOpen(t)} />
+        <TaskRow key={t.id} task={t} project={projectById.get(t.project_id)} projects={projects} onClick={() => onOpen(t)} />
       ))}
     </div>
   );
@@ -138,7 +162,7 @@ export function TaskTimelineView({ tasks, projects, onOpen }: { tasks: Task[]; p
           <div className="mb-2 text-sm font-semibold capitalize">{g.label}</div>
           <div className="space-y-2">
             {g.items.map((t) => (
-              <TaskRow key={t.id} task={t} project={projectById.get(t.project_id)} onClick={() => onOpen(t)} />
+              <TaskRow key={t.id} task={t} project={projectById.get(t.project_id)} projects={projects} onClick={() => onOpen(t)} />
             ))}
           </div>
         </div>

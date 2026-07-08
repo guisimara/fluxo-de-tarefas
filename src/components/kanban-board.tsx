@@ -7,45 +7,49 @@ import { Calendar as CalendarIcon, User, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskModal } from "./task-modal";
 import { useSidebarAutoCollapse } from "./app-shell";
+import { TaskContextMenu } from "./task-context-menu";
 
-function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+function TaskCard({ task, projects, onClick }: { task: Task; projects: Project[]; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
   return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      onClick={onClick}
-      className={cn(
-        "cursor-pointer rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md",
-        isDragging && "opacity-40",
-      )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-medium">{task.title}</div>
-      </div>
-      {task.description && <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</div>}
-      {task.tags && task.tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {task.tags.slice(0, 3).map((t) => (
-            <span key={t} className="rounded-full bg-accent px-2 py-0.5 text-[10px] text-accent-foreground">{t}</span>
-          ))}
+    <TaskContextMenu task={task} projects={projects} onEdit={onClick}>
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        onClick={onClick}
+        className={cn(
+          "cursor-pointer rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md",
+          isDragging && "opacity-40",
+        )}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="text-sm font-medium">{task.title}</div>
+          {task.recurrence && <span className="shrink-0 text-xs text-muted-foreground" title="Tarefa recorrente">↻</span>}
         </div>
-      )}
-      <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-        <span className={cn("rounded-full border px-2 py-0.5", PRIORITY_CLASS[task.priority])}>{PRIORITY_LABEL[task.priority]}</span>
-        <div className="flex items-center gap-2">
-          {task.due_date && (
-            <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{new Date(task.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
-          )}
-          {task.assignee_id && <User className="h-3 w-3" />}
+        {task.description && <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</div>}
+        {task.tags && task.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {task.tags.slice(0, 3).map((t) => (
+              <span key={t} className="rounded-full bg-accent px-2 py-0.5 text-[10px] text-accent-foreground">{t}</span>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className={cn("rounded-full border px-2 py-0.5", PRIORITY_CLASS[task.priority])}>{PRIORITY_LABEL[task.priority]}</span>
+          <div className="flex items-center gap-2">
+            {task.due_date && (
+              <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{new Date(task.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
+            )}
+            {task.assignee_id && <User className="h-3 w-3" />}
+          </div>
         </div>
       </div>
-    </div>
+    </TaskContextMenu>
   );
 }
 
-function Column({ status, tasks, onOpen, onCreate }: { status: Status; tasks: Task[]; onOpen: (t: Task) => void; onCreate: (s: Status) => void }) {
+function Column({ status, tasks, projects, onOpen, onCreate }: { status: Status; tasks: Task[]; projects: Project[]; onOpen: (t: Task) => void; onCreate: (s: Status) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const token = STATUS_TOKEN[status];
   return (
@@ -65,7 +69,7 @@ function Column({ status, tasks, onOpen, onCreate }: { status: Status; tasks: Ta
         className={cn("flex min-h-[200px] flex-1 flex-col gap-2 rounded-b-2xl bg-white/70 p-3 transition", isOver && "bg-primary/5")}
       >
         {tasks.length === 0 && <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">Solte tarefas aqui</div>}
-        {tasks.map((t) => <TaskCard key={t.id} task={t} onClick={() => onOpen(t)} />)}
+        {tasks.map((t) => <TaskCard key={t.id} task={t} projects={projects} onClick={() => onOpen(t)} />)}
       </div>
     </div>
   );
@@ -121,6 +125,7 @@ export function KanbanBoard({ tasks, projects, defaultProjectId }: { tasks: Task
               key={s}
               status={s}
               tasks={tasks.filter((t) => t.status === s)}
+              projects={projects}
               onOpen={(t) => { setEditing(t); setCreating(null); setOpen(true); }}
               onCreate={(st) => { setEditing(null); setCreating(st); setOpen(true); }}
             />

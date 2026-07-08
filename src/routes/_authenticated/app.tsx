@@ -165,7 +165,13 @@ function DashboardPage() {
         ) : view === "timeline" ? (
           <TaskTimelineView tasks={topLevel} projects={projects.data ?? []} onOpen={openTask} />
         ) : (
-          <TaskTree tasks={filtered} projects={projects.data ?? []} onOpen={openTask} onAddSubtask={addSubtask} />
+          <TaskTree
+            tasks={filtered}
+            projects={projects.data ?? []}
+            onOpen={openTask}
+            onAddSubtask={addSubtask}
+            defaultProjectId={isProjectScope ? scope : undefined}
+          />
         )}
       </div>
 
