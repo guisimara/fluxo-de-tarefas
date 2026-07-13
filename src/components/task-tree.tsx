@@ -95,14 +95,8 @@ function TreeNode({
 
   return (
     <div ref={setNodeRef} style={style} className={cn("relative", isDragging && "z-10 opacity-60")}>
-      {depth > 0 && (
-        <>
-          <span className="absolute -left-4 top-0 h-5 w-4 border-b border-l border-border" />
-          {!isLast && <span className="absolute -left-4 top-5 bottom-0 w-px bg-border" />}
-        </>
-      )}
       <TaskContextMenu task={node} projects={projects} onEdit={() => onOpen(node)}>
-        <div className={cn("group flex items-center gap-2 py-2 pl-1 pr-2 hover:bg-accent/40", !isLast && "border-b border-border")}>
+        <div className="group flex items-center gap-2 rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md">
           <button
             {...attributes}
             {...listeners}
@@ -157,7 +151,7 @@ function TreeNode({
       </TaskContextMenu>
 
       {expanded && hasChildren && (
-        <div className="ml-6 space-y-0.5 border-l border-transparent pl-4">
+        <div className="ml-6 mt-2 space-y-2 border-l-2 border-border/70 pl-4">
           <DndContext sensors={childSensors} onDragEnd={onChildDragEnd}>
             <SortableContext items={children.map((c) => c.id)} strategy={verticalListSortingStrategy}>
               {children.map((child, i) => (
@@ -298,7 +292,7 @@ export function TaskTree({
           <p className="mt-1 text-sm text-muted-foreground">Crie uma tarefa para começar a montar a árvore.</p>
         </div>
       ) : (
-        <div className="space-y-6 rounded-2xl border border-border bg-card p-4">
+        <div className="space-y-6">
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <SortableContext items={roots.map((r) => r.id)} strategy={verticalListSortingStrategy}>
               {groups.map((g) => (
@@ -306,7 +300,7 @@ export function TaskTree({
                   <div className="absolute left-1.5 top-1 h-full w-px bg-border" />
                   <div className="absolute left-0 top-1 h-3 w-3 rounded-full bg-primary" />
                   <div className="mb-2 text-sm font-semibold capitalize">{g.label}</div>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {g.items.map(({ node, index }) => (
                       <TreeNode
                         key={node.id}
