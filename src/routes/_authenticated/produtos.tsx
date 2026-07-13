@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -22,6 +22,7 @@ import {
   type TeamMember,
 } from "@/lib/tasks";
 import { ColorPicker } from "@/components/color-picker";
+import { ProductPanel } from "@/components/product-panel";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
@@ -46,6 +47,8 @@ function ProductsPage() {
   const { user } = useCurrentUser();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [viewing, setViewing] = useState<Product | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const products = useQuery({
     queryKey: ["products"],
@@ -157,7 +160,13 @@ function ProductsPage() {
           {(products.data ?? []).map((p) => (
             <div key={p.id} className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md">
               <div className="flex items-start justify-between">
-                <Link to="/projetos/$id" params={{ id: p.project_id }} className="flex-1">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => { setViewing(p); setPanelOpen(true); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { setViewing(p); setPanelOpen(true); } }}
+                  className="flex-1 cursor-pointer"
+                >
                   <div className="flex items-center gap-2">
                     <div
                       className="grid h-9 w-9 place-items-center rounded-lg"
@@ -211,7 +220,7 @@ function ProductsPage() {
                   </div>
 
                   <div className="mt-4 text-xs text-muted-foreground">Criado em {new Date(p.created_at).toLocaleDateString("pt-BR")}</div>
-                </Link>
+                </div>
                 {p.owner_id === user?.id && (
                   <button onClick={() => { if (confirm("Excluir este produto?")) del.mutate(p.id); }} className="opacity-0 transition group-hover:opacity-100">
                     <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
@@ -294,6 +303,8 @@ function ProductsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ProductPanel product={viewing} open={panelOpen} onOpenChange={setPanelOpen} />
     </div>
   );
 }

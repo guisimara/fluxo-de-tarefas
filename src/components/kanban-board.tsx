@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable, type DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ function TaskCard({ task, projects, onClick }: { task: Task; projects: Project[]
         ref={setNodeRef}
         {...attributes}
         {...listeners}
+        data-task-card
         onClick={onClick}
         className={cn(
           "cursor-pointer rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md",
@@ -53,8 +54,8 @@ function Column({ status, tasks, projects, onOpen, onCreate }: { status: Status;
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const token = STATUS_TOKEN[status];
   return (
-    <div className="flex w-72 shrink-0 flex-col rounded-2xl bg-white/60 md:w-80">
-      <div className={cn("flex items-center justify-between rounded-t-2xl px-4 py-3", token.bg)}>
+    <div className="flex h-full w-72 shrink-0 flex-col rounded-2xl bg-white/60 md:w-80">
+      <div className={cn("flex shrink-0 items-center justify-between rounded-t-2xl px-4 py-3", token.bg)}>
         <div className="flex items-center gap-2">
           <span className={cn("h-2 w-2 rounded-full", token.dot)} />
           <span className={cn("text-sm font-semibold", token.fg)}>{STATUS_LABEL[status]}</span>
@@ -66,7 +67,7 @@ function Column({ status, tasks, projects, onOpen, onCreate }: { status: Status;
       </div>
       <div
         ref={setNodeRef}
-        className={cn("flex min-h-[200px] flex-1 flex-col gap-2 rounded-b-2xl bg-white/70 p-3 transition", isOver && "bg-primary/5")}
+        className={cn("flex min-h-[200px] flex-1 flex-col gap-2 overflow-y-auto rounded-b-2xl bg-white/70 p-3 transition", isOver && "bg-primary/5")}
       >
         {tasks.length === 0 && <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">Solte tarefas aqui</div>}
         {tasks.map((t) => <TaskCard key={t.id} task={t} projects={projects} onClick={() => onOpen(t)} />)}
@@ -116,10 +117,43 @@ export function KanbanBoard({ tasks, projects, defaultProjectId }: { tasks: Task
   const active = tasks.find((t) => t.id === activeId);
   const triggerSidebarCollapse = useSidebarAutoCollapse();
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const panState = useRef<{ startX: number; scrollLeft: number } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("[data-task-card], button")) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    panState.current = { startX: e.clientX, scrollLeft: el.scrollLeft };
+    setIsPanning(true);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!panState.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = panState.current.scrollLeft - (e.clientX - panState.current.startX);
+  };
+  const endPan = () => {
+    panState.current = null;
+    setIsPanning(false);
+  };
+
   return (
     <>
       <DndContext sensors={sensors} onDragStart={(e) => setActiveId(e.active.id as string)} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
-        <div className="flex gap-4 overflow-x-auto pb-4" onScroll={(e) => triggerSidebarCollapse(e.currentTarget.scrollLeft)}>
+        <div
+          ref={scrollRef}
+          className={cn(
+            "flex h-[calc(100vh-19rem)] min-h-[420px] select-none gap-4 overflow-x-auto pb-4",
+            isPanning ? "cursor-grabbing" : "cursor-grab",
+          )}
+          onScroll={(e) => triggerSidebarCollapse(e.currentTarget.scrollLeft)}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endPan}
+          onPointerLeave={endPan}
+        >
           {STATUS_ORDER.map((s) => (
             <Column
               key={s}
