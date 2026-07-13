@@ -83,6 +83,19 @@ export const PRIORITY_DOT: Record<Priority, string> = {
   alta: "bg-rose-500",
 };
 
+/** Cor pastel fixa por tag (Tráfego precisa ser azul; as demais variam para diferenciar visualmente). */
+export const TAG_COLOR_CLASS: Record<(typeof TASK_TAGS)[number], string> = {
+  Branding: "border-pink-200 bg-pink-100 text-pink-700",
+  Social: "border-purple-200 bg-purple-100 text-purple-700",
+  Tráfego: "border-blue-200 bg-blue-100 text-blue-700",
+  Design: "border-amber-200 bg-amber-100 text-amber-700",
+  Site: "border-teal-200 bg-teal-100 text-teal-700",
+  LP: "border-indigo-200 bg-indigo-100 text-indigo-700",
+  Sistema: "border-slate-300 bg-slate-100 text-slate-700",
+  Gestão: "border-orange-200 bg-orange-100 text-orange-700",
+  Pessoal: "border-rose-200 bg-rose-100 text-rose-700",
+};
+
 export interface TaskNode extends Task {
   children: TaskNode[];
 }

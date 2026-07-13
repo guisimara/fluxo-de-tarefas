@@ -102,7 +102,7 @@ function TreeNode({
         </>
       )}
       <TaskContextMenu task={node} projects={projects} onEdit={() => onOpen(node)}>
-        <div className={cn("group flex items-center gap-2 border-b border-border py-2 pl-1 pr-2 last:border-b-0 hover:bg-accent/40")}>
+        <div className={cn("group flex items-center gap-2 py-2 pl-1 pr-2 hover:bg-accent/40", !isLast && "border-b border-border")}>
           <button
             {...attributes}
             {...listeners}
@@ -140,18 +140,18 @@ function TreeNode({
           </button>
 
           <button
-            onClick={() => onAddSubtask(node)}
-            className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
-            title="Adicionar subtarefa"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-          <button
             onClick={() => onOpenComments(node)}
             className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
             title="Comentários"
           >
             <MessageSquare className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => onAddSubtask(node)}
+            className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+            title="Adicionar subtarefa"
+          >
+            <Plus className="h-3.5 w-3.5" />
           </button>
         </div>
       </TaskContextMenu>

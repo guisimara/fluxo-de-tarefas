@@ -146,14 +146,14 @@ function DashboardPage() {
               </button>
             ))}
           </div>
-          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+          <div className="inline-flex rounded-lg border border-emerald-100 bg-emerald-50 p-1">
             {VIEWS.filter((v) => v.id === "concluidos").map((v) => (
               <button
                 key={v.id}
                 onClick={() => setView(v.id)}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition",
-                  view === v.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  view === v.id ? "bg-emerald-500 text-white" : "text-emerald-700 hover:bg-emerald-100",
                 )}
               >
                 <v.icon className="h-4 w-4" /> {v.label}

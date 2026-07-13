@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { STATUS_ORDER, STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_DOT, TASK_TAGS, type Status, type Task, type Project, type Profile, type Recurrence } from "@/lib/tasks";
+import { STATUS_ORDER, STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_DOT, TASK_TAGS, TAG_COLOR_CLASS, type Status, type Task, type Project, type Profile, type Recurrence } from "@/lib/tasks";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { MessageSquare } from "lucide-react";
@@ -205,89 +205,97 @@ export function TaskModal({
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div>
-              <Label>Projeto</Label>
-              <Select value={projectId} onValueChange={setProjectId} disabled={lockProject}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      <span className="flex items-center gap-2">
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
-                        {p.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as Status)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {STATUS_ORDER.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      <span className="flex items-center gap-2">
-                        <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_TOKEN[s].dot)} />
-                        {STATUS_LABEL[s]}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Prioridade</Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as "baixa" | "media" | "alta")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(["baixa", "media", "alta"] as const).map((p) => (
-                    <SelectItem key={p} value={p}>
-                      <span className="flex items-center gap-2">
-                        <span className={cn("h-2 w-2 shrink-0 rounded-full", PRIORITY_DOT[p])} />
-                        {PRIORITY_LABEL[p]}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Prazo</Label>
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            </div>
-            <div>
-              <Label className="mb-2 block">Repetição</Label>
-              <RecurrencePicker value={recurrence} onChange={setRecurrence} dueDate={dueDate || undefined} />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="mb-2 block">Adicionar membro</Label>
-              <MultiSelect
-                options={(members.data ?? []).map((m) => ({ value: m.id, label: m.name || m.email || m.id }))}
-                selected={memberIds}
-                onChange={setMemberIds}
-                placeholder="Nenhum membro adicionado"
-                emptyText="Convide membros nesse projeto primeiro."
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label>Delegar (responsável principal)</Label>
-              <Select value={assigneeId || "none"} onValueChange={(v) => setAssigneeId(v === "none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Sem responsável" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem responsável</SelectItem>
-                  {(members.data ?? [])
-                    .filter((m) => memberIds.includes(m.id))
-                    .map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.name || m.email}</SelectItem>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <Label>Projeto</Label>
+                <Select value={projectId} onValueChange={setProjectId} disabled={lockProject}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
+                          {p.name}
+                        </span>
+                      </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
-              {memberIds.length === 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">Adicione membros acima para poder delegar a tarefa.</p>
-              )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-2 block">Repetição</Label>
+                <RecurrencePicker value={recurrence} onChange={setRecurrence} dueDate={dueDate || undefined} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div>
+                <Label>Status</Label>
+                <Select value={status} onValueChange={(v) => setStatus(v as Status)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUS_ORDER.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        <span className="flex items-center gap-2">
+                          <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_TOKEN[s].dot)} />
+                          {STATUS_LABEL[s]}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Prioridade</Label>
+                <Select value={priority} onValueChange={(v) => setPriority(v as "baixa" | "media" | "alta")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(["baixa", "media", "alta"] as const).map((p) => (
+                      <SelectItem key={p} value={p}>
+                        <span className="flex items-center gap-2">
+                          <span className={cn("h-2 w-2 shrink-0 rounded-full", PRIORITY_DOT[p])} />
+                          {PRIORITY_LABEL[p]}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Prazo</Label>
+                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <Label className="mb-2 block">Adicionar membro</Label>
+                <MultiSelect
+                  options={(members.data ?? []).map((m) => ({ value: m.id, label: m.name || m.email || m.id }))}
+                  selected={memberIds}
+                  onChange={setMemberIds}
+                  placeholder="Nenhum membro adicionado"
+                  emptyText="Convide membros nesse projeto primeiro."
+                />
+              </div>
+              <div>
+                <Label>Delegar (responsável principal)</Label>
+                <Select value={assigneeId || "none"} onValueChange={(v) => setAssigneeId(v === "none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Sem responsável" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem responsável</SelectItem>
+                    {(members.data ?? [])
+                      .filter((m) => memberIds.includes(m.id))
+                      .map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name || m.email}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {memberIds.length === 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">Adicione membros acima para poder delegar a tarefa.</p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -302,9 +310,9 @@ export function TaskModal({
                     type="button"
                     onClick={() => toggleTag(t)}
                     className={cn(
-                      "rounded-full border px-3 py-1 text-xs transition",
+                      "rounded-full border px-3 py-1 text-xs font-medium transition",
                       active
-                        ? "border-primary bg-primary text-primary-foreground"
+                        ? TAG_COLOR_CLASS[t]
                         : "border-border bg-transparent text-muted-foreground hover:bg-accent",
                     )}
                   >
