@@ -57,9 +57,31 @@ export interface Task {
   tags: string[];
   position: number;
   recurrence: Recurrence | null;
+  archived: boolean;
+  archived_at: string | null;
+  links: string[];
   created_at: string;
   updated_at: string;
 }
+
+/** Conjunto fixo de tags disponíveis para categorizar tarefas. */
+export const TASK_TAGS = [
+  "Branding",
+  "Social",
+  "Tráfego",
+  "Design",
+  "Site",
+  "LP",
+  "Sistema",
+  "Gestão",
+  "Pessoal",
+] as const;
+
+export const PRIORITY_DOT: Record<Priority, string> = {
+  baixa: "bg-emerald-500",
+  media: "bg-amber-500",
+  alta: "bg-rose-500",
+};
 
 export interface TaskNode extends Task {
   children: TaskNode[];

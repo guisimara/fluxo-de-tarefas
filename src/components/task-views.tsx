@@ -2,8 +2,9 @@ import type { MouseEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_CLASS, sortTasksDefault, computeNextDueDate, type Task, type Project } from "@/lib/tasks";
-import { Calendar as CalendarIcon, User, Inbox, Check } from "lucide-react";
+import { Calendar as CalendarIcon, User, Inbox, Check, Archive, FolderKanban } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { TaskContextMenu } from "./task-context-menu";
 
 export function useToggleTaskDone() {
@@ -133,6 +134,100 @@ export function TaskListView({ tasks, projects, onOpen }: { tasks: Task[]; proje
       {sorted.map((t) => (
         <TaskRow key={t.id} task={t} project={projectById.get(t.project_id)} projects={projects} onClick={() => onOpen(t)} />
       ))}
+    </div>
+  );
+}
+
+function useArchiveTasks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const { error } = await supabase.from("tasks").update({ archived: true, archived_at: new Date().toISOString() }).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Tarefa(s) arquivada(s)");
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Aba de "Concluídos": lista as tarefas concluídas agrupadas por projeto, com arquivamento individual ou em lote. */
+export function ConcluidosView({ tasks, projects, onOpen }: { tasks: Task[]; projects: Project[]; onOpen: (t: Task) => void }) {
+  const archive = useArchiveTasks();
+  const projectById = new Map(projects.map((p) => [p.id, p]));
+
+  const groups = new Map<string, Task[]>();
+  for (const t of tasks) {
+    const list = groups.get(t.project_id) ?? [];
+    list.push(t);
+    groups.set(t.project_id, list);
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+        <Archive className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+        <h3 className="text-lg font-medium">Nenhuma tarefa concluída</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Tarefas concluídas aparecem aqui, agrupadas por projeto.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {Array.from(groups.entries()).map(([projectId, items]) => {
+        const project = projectById.get(projectId);
+        return (
+          <div key={projectId} className="rounded-2xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg"
+                  style={{ background: `${project?.color ?? "#94a3b8"}1A`, color: project?.color ?? "#64748b" }}
+                >
+                  <FolderKanban className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-sm font-semibold">{project?.name ?? "Sem projeto"}</span>
+                <span className="text-xs text-muted-foreground">{items.length} concluída{items.length > 1 ? "s" : ""}</span>
+              </div>
+              <button
+                onClick={() => { if (confirm(`Arquivar todas as ${items.length} tarefas concluídas de "${project?.name}"?`)) archive.mutate(items.map((t) => t.id)); }}
+                className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              >
+                <Archive className="h-3.5 w-3.5" /> Arquivar todas
+              </button>
+            </div>
+            <div className="space-y-2">
+              {items.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background p-3 transition hover:shadow-sm"
+                  onClick={() => onOpen(t)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{t.title}</div>
+                    {t.due_date && (
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
+                        Concluída · prazo {new Date(t.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (confirm("Arquivar esta tarefa?")) archive.mutate([t.id]); }}
+                    className="flex shrink-0 items-center gap-1.5 rounded-md p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    title="Arquivar tarefa"
+                  >
+                    <Archive className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

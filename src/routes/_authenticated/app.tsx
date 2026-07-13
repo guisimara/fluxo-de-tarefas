@@ -3,12 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { KanbanBoard } from "@/components/kanban-board";
-import { TaskListView, TaskTimelineView } from "@/components/task-views";
+import { TaskListView, TaskTimelineView, ConcluidosView } from "@/components/task-views";
 import { TaskTree } from "@/components/task-tree";
 import { TaskModal } from "@/components/task-modal";
 import { InviteModal } from "@/components/invite-modal";
 import { Button } from "@/components/ui/button";
-import { Plus, UserPlus, List, KanbanSquare, GanttChartSquare, GitBranch } from "lucide-react";
+import { Plus, UserPlus, List, KanbanSquare, GanttChartSquare, GitBranch, Archive } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useProjectScope } from "@/lib/project-scope";
@@ -24,6 +24,7 @@ const VIEWS = [
   { id: "list", label: "Lista", icon: List },
   { id: "kanban", label: "Kanban", icon: KanbanSquare },
   { id: "timeline", label: "Timeline", icon: GanttChartSquare },
+  { id: "concluidos", label: "Concluídos", icon: Archive },
 ] as const;
 type ViewMode = (typeof VIEWS)[number]["id"];
 
@@ -63,6 +64,7 @@ function DashboardPage() {
   });
 
   const filtered = (tasks.data ?? []).filter((t) => {
+    if (t.archived) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
     if (dateFilter !== "all") {
@@ -164,6 +166,12 @@ function DashboardPage() {
           <TaskListView tasks={topLevel} projects={projects.data ?? []} onOpen={openTask} />
         ) : view === "timeline" ? (
           <TaskTimelineView tasks={topLevel} projects={projects.data ?? []} onOpen={openTask} />
+        ) : view === "concluidos" ? (
+          <ConcluidosView
+            tasks={(tasks.data ?? []).filter((t) => !t.archived && t.status === "concluido" && (!search || t.title.toLowerCase().includes(search.toLowerCase())))}
+            projects={projects.data ?? []}
+            onOpen={openTask}
+          />
         ) : (
           <TaskTree
             tasks={filtered}

@@ -279,12 +279,15 @@ export type Database = {
       }
       tasks: {
         Row: {
+          archived: boolean
+          archived_at: string | null
           assignee_id: string | null
           created_at: string
           created_by: string
           description: string | null
           due_date: string | null
           id: string
+          links: Json
           parent_id: string | null
           position: number
           priority: Database["public"]["Enums"]["task_priority"]
@@ -296,12 +299,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean
+          archived_at?: string | null
           assignee_id?: string | null
           created_at?: string
           created_by: string
           description?: string | null
           due_date?: string | null
           id?: string
+          links?: Json
           parent_id?: string | null
           position?: number
           priority?: Database["public"]["Enums"]["task_priority"]
@@ -313,12 +319,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean
+          archived_at?: string | null
           assignee_id?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
           due_date?: string | null
           id?: string
+          links?: Json
           parent_id?: string | null
           position?: number
           priority?: Database["public"]["Enums"]["task_priority"]

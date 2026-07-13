@@ -58,6 +58,7 @@ function TreeNode({
   project,
   projects,
   depth,
+  isLast,
   onOpen,
   onAddSubtask,
 }: {
@@ -65,6 +66,7 @@ function TreeNode({
   project?: Project;
   projects: Project[];
   depth: number;
+  isLast: boolean;
   onOpen: (t: Task) => void;
   onAddSubtask: (parent: Task) => void;
 }) {
@@ -74,6 +76,8 @@ function TreeNode({
   const toggleDone = useToggleTaskDone();
   const reorder = useReorderSiblings();
   const children = sortTasksDefault(node.children) as TaskNode[];
+  // Sensor precisa ser chamado incondicionalmente (regras dos hooks), mesmo quando não há filhos expandidos.
+  const childSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: node.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -91,11 +95,11 @@ function TreeNode({
       {depth > 0 && (
         <>
           <span className="absolute -left-4 top-0 h-5 w-4 border-b border-l border-border" />
-          <span className="absolute -left-4 top-5 bottom-0 w-px bg-border" />
+          {!isLast && <span className="absolute -left-4 top-5 bottom-0 w-px bg-border" />}
         </>
       )}
       <TaskContextMenu task={node} projects={projects} onEdit={() => onOpen(node)}>
-        <div className="group flex items-center gap-2 rounded-lg py-1.5 pl-1 pr-2 hover:bg-accent/40">
+        <div className={cn("group flex items-center gap-2 border-b border-border/60 py-2 pl-1 pr-2 last:border-b-0 hover:bg-accent/40")}>
           <button
             {...attributes}
             {...listeners}
@@ -113,19 +117,23 @@ function TreeNode({
 
           <StatusDot task={node} onToggle={(e) => { e.stopPropagation(); toggleDone.mutate(node); }} />
 
-          <button onClick={() => onOpen(node)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-            <span className="truncate text-sm">{node.title}</span>
-            {project && depth === 0 && (
-              <span className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: project.color }} /> {project.name}
-              </span>
-            )}
-            <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px]", token.bg, token.fg)}>{STATUS_LABEL[node.status]}</span>
-            <span className={cn("hidden shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] sm:inline", PRIORITY_CLASS[node.priority])}>
-              {PRIORITY_LABEL[node.priority]}
+          <button onClick={() => onOpen(node)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm">{node.title}</span>
+              {node.recurrence && <span className="shrink-0 text-[11px] text-muted-foreground" title="Tarefa recorrente">↻</span>}
+              {hasChildren && <span className="shrink-0 text-[11px] text-muted-foreground">{node.children.length} subtarefa{node.children.length > 1 ? "s" : ""}</span>}
             </span>
-            {node.recurrence && <span className="shrink-0 text-[11px] text-muted-foreground" title="Tarefa recorrente">↻</span>}
-            {hasChildren && <span className="shrink-0 text-[11px] text-muted-foreground">{node.children.length} subtarefa{node.children.length > 1 ? "s" : ""}</span>}
+            <span className="flex shrink-0 items-center gap-2">
+              {project && depth === 0 && (
+                <span className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: project.color }} /> {project.name}
+                </span>
+              )}
+              <span className={cn("shrink-0 rounded-full border px-1.5 py-0.5 text-[10px]", PRIORITY_CLASS[node.priority])}>
+                {PRIORITY_LABEL[node.priority]}
+              </span>
+              <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px]", token.bg, token.fg)}>{STATUS_LABEL[node.status]}</span>
+            </span>
           </button>
 
           <button
@@ -140,10 +148,19 @@ function TreeNode({
 
       {expanded && hasChildren && (
         <div className="ml-6 space-y-0.5 border-l border-transparent pl-4">
-          <DndContext sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))} onDragEnd={onChildDragEnd}>
+          <DndContext sensors={childSensors} onDragEnd={onChildDragEnd}>
             <SortableContext items={children.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-              {children.map((child) => (
-                <TreeNode key={child.id} node={child} project={project} projects={projects} depth={depth + 1} onOpen={onOpen} onAddSubtask={onAddSubtask} />
+              {children.map((child, i) => (
+                <TreeNode
+                  key={child.id}
+                  node={child}
+                  project={project}
+                  projects={projects}
+                  depth={depth + 1}
+                  isLast={i === children.length - 1}
+                  onOpen={onOpen}
+                  onAddSubtask={onAddSubtask}
+                />
               ))}
             </SortableContext>
           </DndContext>
@@ -195,13 +212,24 @@ function QuickAddRow({ projects, defaultProjectId }: { projects: Project[]; defa
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && title.trim()) { e.preventDefault(); create.mutate(); }
+          if (e.key === "Enter" && title.trim() && !create.isPending) { e.preventDefault(); create.mutate(); }
         }}
+        disabled={create.isPending}
         placeholder="Adicionar tarefa rápida e pressionar Enter..."
-        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
       />
     </div>
   );
+}
+
+function dayLabel(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (diffDays === 0) return "Hoje";
+  if (diffDays === 1) return "Amanhã";
+  if (diffDays === -1) return "Ontem";
+  return d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 }
 
 export function TaskTree({
@@ -231,6 +259,10 @@ export function TaskTree({
     reorder.mutate(arrayMove(roots, oldIndex, newIndex));
   };
 
+  // Agrupa visualmente por dia (tarefas com prazo) ou "Sem prazo", mantendo um único SortableContext
+  // com todos os itens para não quebrar o drag-and-drop entre grupos.
+  let lastGroupLabel: string | null = null;
+
   return (
     <div>
       <QuickAddRow projects={projects} defaultProjectId={defaultProjectId} />
@@ -245,9 +277,29 @@ export function TaskTree({
         <div className="space-y-1 rounded-2xl border border-border bg-card p-4">
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <SortableContext items={roots.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-              {roots.map((node) => (
-                <TreeNode key={node.id} node={node} project={projectById.get(node.project_id)} projects={projects} depth={0} onOpen={onOpen} onAddSubtask={onAddSubtask} />
-              ))}
+              {roots.map((node, i) => {
+                const groupLabel = node.due_date ? dayLabel(node.due_date) : "Sem prazo";
+                const showHeader = groupLabel !== lastGroupLabel;
+                lastGroupLabel = groupLabel;
+                return (
+                  <div key={node.id}>
+                    {showHeader && (
+                      <div className={cn("mb-1 flex items-center gap-2 px-1 text-xs font-semibold capitalize text-muted-foreground", i > 0 && "mt-4")}>
+                        {groupLabel}
+                      </div>
+                    )}
+                    <TreeNode
+                      node={node}
+                      project={projectById.get(node.project_id)}
+                      projects={projects}
+                      depth={0}
+                      isLast={i === roots.length - 1}
+                      onOpen={onOpen}
+                      onAddSubtask={onAddSubtask}
+                    />
+                  </div>
+                );
+              })}
             </SortableContext>
           </DndContext>
         </div>

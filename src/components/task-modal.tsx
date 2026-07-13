@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { STATUS_ORDER, STATUS_LABEL, type Status, type Task, type Project, type Profile, type Recurrence } from "@/lib/tasks";
+import { STATUS_ORDER, STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_DOT, TASK_TAGS, type Status, type Task, type Project, type Profile, type Recurrence } from "@/lib/tasks";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { X } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { RecurrencePicker } from "@/components/recurrence-picker";
+import { TaskCommentsPanel } from "@/components/task-comments-panel";
+import { cn } from "@/lib/utils";
 
 export function TaskModal({
   open,
@@ -47,8 +48,7 @@ export function TaskModal({
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
-  const [comment, setComment] = useState("");
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -62,8 +62,6 @@ export function TaskModal({
     setAssigneeId(task?.assignee_id ?? "");
     setMemberIds([]);
     setTags(task?.tags ?? []);
-    setTagInput("");
-    setComment("");
   }, [open, task, defaultProjectId, defaultStatus, parentTask, projects]);
 
   const members = useQuery({
@@ -97,19 +95,6 @@ export function TaskModal({
   useEffect(() => {
     if (assigneeId && !memberIds.includes(assigneeId)) setAssigneeId("");
   }, [memberIds, assigneeId]);
-
-  const comments = useQuery({
-    queryKey: ["task-comments", task?.id],
-    enabled: !!task?.id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("task_comments")
-        .select("id, comment, created_at, user_id, profiles:profiles(name)")
-        .eq("task_id", task!.id)
-        .order("created_at", { ascending: true });
-      return data ?? [];
-    },
-  });
 
   const parentId = task?.parent_id ?? parentTask?.id ?? null;
 
@@ -189,26 +174,13 @@ export function TaskModal({
     },
   });
 
-  const addComment = useMutation({
-    mutationFn: async () => {
-      if (!task || !user || !comment.trim()) return;
-      const { error } = await supabase.from("task_comments").insert({
-        task_id: task.id,
-        user_id: user.id,
-        comment: comment.trim(),
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setComment("");
-      qc.invalidateQueries({ queryKey: ["task-comments", task?.id] });
-    },
-  });
+  const toggleTag = (tag: string) => {
+    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  };
 
-  const addTag = () => {
-    const t = tagInput.trim();
-    if (t && !tags.includes(t)) setTags([...tags, t]);
-    setTagInput("");
+  const handleSave = () => {
+    if (save.isPending || !title.trim() || !projectId) return;
+    save.mutate();
   };
 
   return (
@@ -225,7 +197,7 @@ export function TaskModal({
             </div>
           )}
           <div>
-            <Label>Título</Label>
+            <Label>Nome da tarefa</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="O que precisa ser feito?" />
           </div>
           <div>
@@ -239,7 +211,14 @@ export function TaskModal({
               <Select value={projectId} onValueChange={setProjectId} disabled={lockProject}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
+                        {p.name}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -248,7 +227,14 @@ export function TaskModal({
               <Select value={status} onValueChange={(v) => setStatus(v as Status)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+                  {STATUS_ORDER.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      <span className="flex items-center gap-2">
+                        <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_TOKEN[s].dot)} />
+                        {STATUS_LABEL[s]}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -257,9 +243,14 @@ export function TaskModal({
               <Select value={priority} onValueChange={(v) => setPriority(v as "baixa" | "media" | "alta")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="baixa">Baixa</SelectItem>
-                  <SelectItem value="media">Média</SelectItem>
-                  <SelectItem value="alta">Alta</SelectItem>
+                  {(["baixa", "media", "alta"] as const).map((p) => (
+                    <SelectItem key={p} value={p}>
+                      <span className="flex items-center gap-2">
+                        <span className={cn("h-2 w-2 shrink-0 rounded-full", PRIORITY_DOT[p])} />
+                        {PRIORITY_LABEL[p]}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -301,40 +292,34 @@ export function TaskModal({
           </div>
 
           <div>
-            <Label>Tags</Label>
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
-              {tags.map((t) => (
-                <Badge key={t} variant="secondary" className="gap-1">
-                  {t}
-                  <button onClick={() => setTags(tags.filter((x) => x !== t))}><X className="h-3 w-3" /></button>
-                </Badge>
-              ))}
-              <input
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
-                placeholder="Adicionar tag..."
-                className="min-w-[100px] flex-1 bg-transparent text-sm outline-none"
-              />
+            <Label className="mb-2 block">Tags</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              {TASK_TAGS.map((t) => {
+                const active = tags.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => toggleTag(t)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs transition",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-transparent text-muted-foreground hover:bg-accent",
+                    )}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {task && (
             <div>
-              <Label>Comentários</Label>
-              <div className="space-y-2 rounded-md border border-border p-3 max-h-40 overflow-y-auto">
-                {(comments.data ?? []).length === 0 && <div className="text-xs text-muted-foreground">Sem comentários.</div>}
-                {(comments.data ?? []).map((c: any) => (
-                  <div key={c.id} className="text-sm">
-                    <div className="text-xs text-muted-foreground">{c.profiles?.name ?? "—"} · {new Date(c.created_at).toLocaleString("pt-BR")}</div>
-                    <div>{c.comment}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-2 flex gap-2">
-                <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Adicionar comentário..." />
-                <Button variant="secondary" onClick={() => addComment.mutate()}>Enviar</Button>
-              </div>
+              <Button type="button" variant="outline" className="w-full gap-2" onClick={() => setCommentsOpen(true)}>
+                <MessageSquare className="h-4 w-4" /> Ver comentários e links
+              </Button>
             </div>
           )}
         </div>
@@ -350,12 +335,18 @@ export function TaskModal({
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={() => save.mutate()} disabled={!title.trim() || !projectId}>
+            <Button onClick={handleSave} disabled={!title.trim() || !projectId || save.isPending}>
               {task ? "Salvar" : "Criar tarefa"}
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
+      <TaskCommentsPanel
+        task={task ?? null}
+        members={members.data ?? []}
+        open={commentsOpen}
+        onOpenChange={setCommentsOpen}
+      />
     </Dialog>
   );
 }
