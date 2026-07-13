@@ -87,7 +87,7 @@ function DashboardPage() {
   const topLevel = filtered.filter((t) => !t.parent_id);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
+    <div className="mx-auto max-w-7xl px-3 py-6 md:px-5">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Minhas Tarefas</h1>
@@ -131,19 +131,35 @@ function DashboardPage() {
       </div>
 
       {(projects.data ?? []).length > 0 && (
-        <div className="mt-6 inline-flex rounded-lg border border-border bg-card p-1">
-          {VIEWS.map((v) => (
-            <button
-              key={v.id}
-              onClick={() => setView(v.id)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition",
-                view === v.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <v.icon className="h-4 w-4" /> {v.label}
-            </button>
-          ))}
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+            {VIEWS.filter((v) => v.id !== "concluidos").map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setView(v.id)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition",
+                  view === v.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <v.icon className="h-4 w-4" /> {v.label}
+              </button>
+            ))}
+          </div>
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+            {VIEWS.filter((v) => v.id === "concluidos").map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setView(v.id)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition",
+                  view === v.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <v.icon className="h-4 w-4" /> {v.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

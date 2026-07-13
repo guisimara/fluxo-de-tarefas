@@ -40,7 +40,7 @@ function SettingsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 md:px-8">
+    <div className="mx-auto max-w-2xl px-3 py-6 md:px-5">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
         <p className="text-sm text-muted-foreground">Ajuste seus dados de perfil.</p>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Plus, Inbox, GripVertical } from "lucide-react";
+import { ChevronRight, Plus, Inbox, GripVertical, MessageSquare } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { useToggleTaskDone, StatusDot } from "./task-views";
 import { TaskContextMenu } from "./task-context-menu";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { TaskCommentsPanel } from "./task-comments-panel";
 
 /** Persiste a nova ordem de um grupo de irmãos (mesmo parent_id) após um drag-and-drop. */
 function useReorderSiblings() {
@@ -61,6 +62,7 @@ function TreeNode({
   isLast,
   onOpen,
   onAddSubtask,
+  onOpenComments,
 }: {
   node: TaskNode;
   project?: Project;
@@ -69,6 +71,7 @@ function TreeNode({
   isLast: boolean;
   onOpen: (t: Task) => void;
   onAddSubtask: (parent: Task) => void;
+  onOpenComments: (task: Task) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
   const token = STATUS_TOKEN[node.status];
@@ -99,7 +102,7 @@ function TreeNode({
         </>
       )}
       <TaskContextMenu task={node} projects={projects} onEdit={() => onOpen(node)}>
-        <div className={cn("group flex items-center gap-2 border-b border-border/60 py-2 pl-1 pr-2 last:border-b-0 hover:bg-accent/40")}>
+        <div className={cn("group flex items-center gap-2 border-b border-border py-2 pl-1 pr-2 last:border-b-0 hover:bg-accent/40")}>
           <button
             {...attributes}
             {...listeners}
@@ -143,6 +146,13 @@ function TreeNode({
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
+          <button
+            onClick={() => onOpenComments(node)}
+            className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+            title="Comentários"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+          </button>
         </div>
       </TaskContextMenu>
 
@@ -160,6 +170,7 @@ function TreeNode({
                   isLast={i === children.length - 1}
                   onOpen={onOpen}
                   onAddSubtask={onAddSubtask}
+                  onOpenComments={onOpenComments}
                 />
               ))}
             </SortableContext>
@@ -250,6 +261,8 @@ export function TaskTree({
   const roots = sortTasksDefault(tree) as TaskNode[];
   const reorder = useReorderSiblings();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const [commentsTask, setCommentsTask] = useState<Task | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
@@ -259,9 +272,20 @@ export function TaskTree({
     reorder.mutate(arrayMove(roots, oldIndex, newIndex));
   };
 
-  // Agrupa visualmente por dia (tarefas com prazo) ou "Sem prazo", mantendo um único SortableContext
-  // com todos os itens para não quebrar o drag-and-drop entre grupos.
-  let lastGroupLabel: string | null = null;
+  const openComments = (task: Task) => {
+    setCommentsTask(task);
+    setCommentsOpen(true);
+  };
+
+  // Agrupa visualmente por dia (tarefas com prazo) ou "Sem prazo", igual à visualização Timeline,
+  // mantendo um único SortableContext com todos os itens para não quebrar o drag-and-drop entre grupos.
+  const groups: { label: string; items: { node: TaskNode; index: number }[] }[] = [];
+  roots.forEach((node, index) => {
+    const label = node.due_date ? dayLabel(node.due_date) : "Sem prazo";
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push({ node, index });
+    else groups.push({ label, items: [{ node, index }] });
+  });
 
   return (
     <div>
@@ -274,36 +298,37 @@ export function TaskTree({
           <p className="mt-1 text-sm text-muted-foreground">Crie uma tarefa para começar a montar a árvore.</p>
         </div>
       ) : (
-        <div className="space-y-1 rounded-2xl border border-border bg-card p-4">
+        <div className="space-y-6 rounded-2xl border border-border bg-card p-4">
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <SortableContext items={roots.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-              {roots.map((node, i) => {
-                const groupLabel = node.due_date ? dayLabel(node.due_date) : "Sem prazo";
-                const showHeader = groupLabel !== lastGroupLabel;
-                lastGroupLabel = groupLabel;
-                return (
-                  <div key={node.id}>
-                    {showHeader && (
-                      <div className={cn("mb-1 flex items-center gap-2 px-1 text-xs font-semibold capitalize text-muted-foreground", i > 0 && "mt-4")}>
-                        {groupLabel}
-                      </div>
-                    )}
-                    <TreeNode
-                      node={node}
-                      project={projectById.get(node.project_id)}
-                      projects={projects}
-                      depth={0}
-                      isLast={i === roots.length - 1}
-                      onOpen={onOpen}
-                      onAddSubtask={onAddSubtask}
-                    />
+              {groups.map((g) => (
+                <div key={g.label} className="relative pl-6">
+                  <div className="absolute left-1.5 top-1 h-full w-px bg-border" />
+                  <div className="absolute left-0 top-1 h-3 w-3 rounded-full bg-primary" />
+                  <div className="mb-2 text-sm font-semibold capitalize">{g.label}</div>
+                  <div className="space-y-1">
+                    {g.items.map(({ node, index }) => (
+                      <TreeNode
+                        key={node.id}
+                        node={node}
+                        project={projectById.get(node.project_id)}
+                        projects={projects}
+                        depth={0}
+                        isLast={index === roots.length - 1}
+                        onOpen={onOpen}
+                        onAddSubtask={onAddSubtask}
+                        onOpenComments={openComments}
+                      />
+                    ))}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </SortableContext>
           </DndContext>
         </div>
       )}
+
+      <TaskCommentsPanel task={commentsTask} open={commentsOpen} onOpenChange={setCommentsOpen} />
     </div>
   );
 }

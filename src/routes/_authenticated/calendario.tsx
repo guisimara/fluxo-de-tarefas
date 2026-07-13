@@ -64,7 +64,7 @@ function CalendarPage() {
   const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
+    <div className="mx-auto max-w-5xl px-3 py-6 md:px-5">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Calendário</h1>

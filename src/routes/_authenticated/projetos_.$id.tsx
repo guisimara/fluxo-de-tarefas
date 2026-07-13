@@ -75,7 +75,7 @@ function ProjectPage() {
   const topLevel = (tasks.data ?? []).filter((t) => !t.parent_id);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
+    <div className="mx-auto max-w-7xl px-3 py-6 md:px-5">
       <Link to="/projetos" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Projetos
       </Link>

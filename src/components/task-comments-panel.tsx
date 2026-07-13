@@ -27,12 +27,12 @@ function renderCommentText(text: string, members: Profile[]) {
 
 export function TaskCommentsPanel({
   task,
-  members,
+  members: membersProp,
   open,
   onOpenChange,
 }: {
   task: Task | null;
-  members: Profile[];
+  members?: Profile[];
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
@@ -42,6 +42,21 @@ export function TaskCommentsPanel({
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [newLink, setNewLink] = useState("");
+
+  const projectMembers = useQuery({
+    queryKey: ["project-members-profiles", task?.project_id],
+    enabled: !!task?.project_id && open && !membersProp,
+    queryFn: async () => {
+      const { data: proj } = await supabase.from("projects").select("owner_id").eq("id", task!.project_id).maybeSingle();
+      const { data: ms } = await supabase.from("project_members").select("user_id").eq("project_id", task!.project_id).eq("status", "accepted");
+      const ids = Array.from(new Set([proj?.owner_id, ...(ms ?? []).map((m) => m.user_id)].filter(Boolean))) as string[];
+      if (ids.length === 0) return [] as Profile[];
+      const { data: profiles } = await supabase.from("profiles").select("id, name, email, avatar_url").in("id", ids);
+      return (profiles ?? []) as Profile[];
+    },
+  });
+
+  const members = membersProp ?? projectMembers.data ?? [];
 
   const comments = useQuery({
     queryKey: ["task-comments", task?.id],
@@ -122,7 +137,7 @@ export function TaskCommentsPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
         <SheetHeader className="border-b border-border px-5 py-4 text-left">
           <SheetTitle className="flex items-center gap-2 text-base">
             <MessageSquare className="h-4 w-4" /> Comentários
