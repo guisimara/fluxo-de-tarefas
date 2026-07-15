@@ -119,6 +119,13 @@ function TreeNode({
       <TaskContextMenu task={node} projects={projects} onEdit={() => onOpen(node)}>
         <div className="group flex items-center gap-2 rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md">
           <button
+            onClick={() => onOpen(node)}
+            className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+            title="Editar tarefa"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
             {...attributes}
             {...listeners}
             className="shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground opacity-0 transition group-hover:opacity-100 active:cursor-grabbing"
@@ -154,13 +161,6 @@ function TreeNode({
             </span>
           </button>
 
-          <button
-            onClick={() => onOpen(node)}
-            className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
-            title="Editar tarefa"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
           <button
             onClick={() => onOpenComments(node)}
             className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"

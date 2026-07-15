@@ -153,7 +153,7 @@ export function TaskCommentsPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-3xl">
         <SheetHeader className="border-b border-border px-5 py-4 text-left">
           <SheetTitle className="text-base">{task.title}</SheetTitle>
           {project && (
@@ -179,7 +179,10 @@ export function TaskCommentsPanel({
             )}
           </div>
           {task.description && (
-            <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{task.description}</p>
+            <div className="mt-3">
+              <div className="mb-1 text-xs font-semibold text-muted-foreground">Descrição da task:</div>
+              <p className="whitespace-pre-wrap text-sm text-muted-foreground">{task.description}</p>
+            </div>
           )}
           {(task.tags ?? []).length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
