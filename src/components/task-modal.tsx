@@ -352,6 +352,7 @@ export function TaskModal({
       <TaskCommentsPanel
         task={task ?? null}
         members={members.data ?? []}
+        projects={projects}
         open={commentsOpen}
         onOpenChange={setCommentsOpen}
       />

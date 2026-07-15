@@ -8,7 +8,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MessageSquare, Link2, Plus, X, Send } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import type { Task, Profile } from "@/lib/tasks";
+import { cn } from "@/lib/utils";
+import {
+  STATUS_LABEL,
+  STATUS_TOKEN,
+  PRIORITY_LABEL,
+  PRIORITY_CLASS,
+  TAG_COLOR_CLASS,
+  type Task,
+  type Profile,
+  type Project,
+} from "@/lib/tasks";
 
 /** Renderiza o texto de um comentário destacando menções "@Nome". */
 function renderCommentText(text: string, members: Profile[]) {
@@ -28,11 +38,13 @@ function renderCommentText(text: string, members: Profile[]) {
 export function TaskCommentsPanel({
   task,
   members: membersProp,
+  projects,
   open,
   onOpenChange,
 }: {
   task: Task | null;
   members?: Profile[];
+  projects?: Project[];
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
@@ -135,15 +147,56 @@ export function TaskCommentsPanel({
 
   if (!task) return null;
 
+  const project = projects?.find((p) => p.id === task.project_id);
+  const assignee = members.find((m) => m.id === task.assignee_id);
+  const token = STATUS_TOKEN[task.status];
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
         <SheetHeader className="border-b border-border px-5 py-4 text-left">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <MessageSquare className="h-4 w-4" /> Comentários
-          </SheetTitle>
-          <p className="truncate text-xs text-muted-foreground">{task.title}</p>
+          <SheetTitle className="text-base">{task.title}</SheetTitle>
+          {project && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: project.color }} /> {project.name}
+            </p>
+          )}
         </SheetHeader>
+
+        <div className="border-b border-border px-5 py-4">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={cn("rounded-full px-2 py-0.5 text-[11px]", token.bg, token.fg)}>{STATUS_LABEL[task.status]}</span>
+            <span className={cn("rounded-full border px-2 py-0.5 text-[11px]", PRIORITY_CLASS[task.priority])}>{PRIORITY_LABEL[task.priority]}</span>
+            {task.due_date && (
+              <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                {new Date(task.due_date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+              </span>
+            )}
+            {assignee && (
+              <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                Responsável: {assignee.name || assignee.email}
+              </span>
+            )}
+          </div>
+          {task.description && (
+            <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{task.description}</p>
+          )}
+          {(task.tags ?? []).length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {task.tags.map((t) => (
+                <span
+                  key={t}
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                    TAG_COLOR_CLASS[t as keyof typeof TAG_COLOR_CLASS] ?? "border-border bg-transparent text-muted-foreground",
+                  )}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="border-b border-border px-5 py-4">
           <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
@@ -176,6 +229,9 @@ export function TaskCommentsPanel({
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <MessageSquare className="h-3.5 w-3.5" /> Comentários
+          </div>
           {(comments.data ?? []).length === 0 && (
             <div className="text-center text-xs text-muted-foreground">Nenhum comentário ainda.</div>
           )}

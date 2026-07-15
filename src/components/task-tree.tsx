@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Plus, Inbox, GripVertical, MessageSquare } from "lucide-react";
+import { ChevronRight, Plus, Inbox, GripVertical, MessageSquare, Pencil } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -46,6 +46,27 @@ function useReorderSiblings() {
       const positionById = new Map(ordered.map((t, index) => [t.id, index]));
       qc.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
         old ? old.map((t) => (positionById.has(t.id) ? { ...t, position: positionById.get(t.id)! } : t)) : old,
+      );
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => ctx?.previous.forEach(([k, v]) => qc.setQueryData(k, v)),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
+/** Ao arrastar uma tarefa para outro grupo de dia, atualiza automaticamente o prazo dela para a data do grupo de destino. */
+function useChangeDueDate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, dueDate }: { taskId: string; dueDate: string | null }) => {
+      const { error } = await supabase.from("tasks").update({ due_date: dueDate }).eq("id", taskId);
+      if (error) throw error;
+    },
+    onMutate: async ({ taskId, dueDate }) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const previous = qc.getQueriesData<Task[]>({ queryKey: ["tasks"] });
+      qc.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
+        old ? old.map((t) => (t.id === taskId ? { ...t, due_date: dueDate } : t)) : old,
       );
       return { previous };
     },
@@ -114,7 +135,7 @@ function TreeNode({
 
           <StatusDot task={node} onToggle={(e) => { e.stopPropagation(); toggleDone.mutate(node); }} />
 
-          <button onClick={() => onOpen(node)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
+          <button onClick={() => onOpenComments(node)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
             <span className="flex min-w-0 items-center gap-2">
               <span className="truncate text-sm">{node.title}</span>
               {node.recurrence && <span className="shrink-0 text-[11px] text-muted-foreground" title="Tarefa recorrente">↻</span>}
@@ -133,6 +154,13 @@ function TreeNode({
             </span>
           </button>
 
+          <button
+            onClick={() => onOpen(node)}
+            className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+            title="Editar tarefa"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={() => onOpenComments(node)}
             className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
@@ -254,6 +282,7 @@ export function TaskTree({
   const tree = buildTaskTree(tasks);
   const roots = sortTasksDefault(tree) as TaskNode[];
   const reorder = useReorderSiblings();
+  const changeDueDate = useChangeDueDate();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const [commentsTask, setCommentsTask] = useState<Task | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -263,6 +292,13 @@ export function TaskTree({
     const oldIndex = roots.findIndex((r) => r.id === e.active.id);
     const newIndex = roots.findIndex((r) => r.id === e.over!.id);
     if (oldIndex < 0 || newIndex < 0) return;
+    const active = roots[oldIndex];
+    const over = roots[newIndex];
+    // Se a tarefa foi arrastada para um grupo de dia diferente, atualiza o prazo dela para o do grupo de destino.
+    if ((active.due_date ?? null) !== (over.due_date ?? null)) {
+      changeDueDate.mutate({ taskId: active.id, dueDate: over.due_date ?? null });
+      return;
+    }
     reorder.mutate(arrayMove(roots, oldIndex, newIndex));
   };
 
@@ -322,7 +358,7 @@ export function TaskTree({
         </div>
       )}
 
-      <TaskCommentsPanel task={commentsTask} open={commentsOpen} onOpenChange={setCommentsOpen} />
+      <TaskCommentsPanel task={commentsTask} projects={projects} open={commentsOpen} onOpenChange={setCommentsOpen} />
     </div>
   );
 }
