@@ -3,14 +3,17 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDropp
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUS_ORDER, STATUS_LABEL, STATUS_TOKEN, PRIORITY_LABEL, PRIORITY_CLASS, type Status, type Task, type Project } from "@/lib/tasks";
-import { Calendar as CalendarIcon, User, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, User, Plus, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskModal } from "./task-modal";
 import { useSidebarAutoCollapse } from "./app-shell";
 import { TaskContextMenu } from "./task-context-menu";
+import { useHideFromBoard } from "./task-views";
 
 function TaskCard({ task, projects, onClick }: { task: Task; projects: Project[]; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
+  const hideFromBoard = useHideFromBoard();
+  const done = task.status === "concluido";
   return (
     <TaskContextMenu task={task} projects={projects} onEdit={onClick}>
       <div
@@ -45,6 +48,15 @@ function TaskCard({ task, projects, onClick }: { task: Task; projects: Project[]
             {task.assignee_id && <User className="h-3 w-3" />}
           </div>
         </div>
+        {done && (
+          <button
+            onClick={(e) => { e.stopPropagation(); hideFromBoard.mutate(task.id); }}
+            title="Arquivar tarefa (some do quadro, mas continua em Concluídos)"
+            className="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+          >
+            <Archive className="h-3.5 w-3.5" /> Arquivar
+          </button>
+        )}
       </div>
     </TaskContextMenu>
   );

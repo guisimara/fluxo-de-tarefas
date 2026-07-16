@@ -59,6 +59,8 @@ export interface Task {
   recurrence: Recurrence | null;
   archived: boolean;
   archived_at: string | null;
+  /** Tarefa concluída removida das visões principais (Kanban/Lista/Timeline/Árvore), mas ainda visível em Concluídos. */
+  hidden_from_board: boolean;
   links: string[];
   created_at: string;
   updated_at: string;

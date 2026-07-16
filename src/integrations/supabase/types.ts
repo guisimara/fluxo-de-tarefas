@@ -286,6 +286,7 @@ export type Database = {
           created_by: string
           description: string | null
           due_date: string | null
+          hidden_from_board: boolean
           id: string
           links: Json
           parent_id: string | null
@@ -306,6 +307,7 @@ export type Database = {
           created_by: string
           description?: string | null
           due_date?: string | null
+          hidden_from_board?: boolean
           id?: string
           links?: Json
           parent_id?: string | null
@@ -326,6 +328,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           due_date?: string | null
+          hidden_from_board?: boolean
           id?: string
           links?: Json
           parent_id?: string | null

@@ -65,6 +65,7 @@ function DashboardPage() {
 
   const filtered = (tasks.data ?? []).filter((t) => {
     if (t.archived) return false;
+    if (t.hidden_from_board) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
     if (dateFilter !== "all") {

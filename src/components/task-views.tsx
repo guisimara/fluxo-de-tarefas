@@ -68,6 +68,22 @@ export function StatusDot({ task, onToggle }: { task: Task; onToggle: (e: MouseE
   );
 }
 
+/** Remove a tarefa concluída das visões principais (Kanban/Lista/Timeline/Árvore), mantendo-a visível em Concluídos. */
+export function useHideFromBoard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tasks").update({ hidden_from_board: true }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Tarefa removida das tarefas ativas (continua em Concluídos)");
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 function ProjectDot({ project }: { project?: Project }) {
   if (!project) return null;
   return (
@@ -81,6 +97,8 @@ function ProjectDot({ project }: { project?: Project }) {
 function TaskRow({ task, project, projects, onClick }: { task: Task; project?: Project; projects: Project[]; onClick: () => void }) {
   const token = STATUS_TOKEN[task.status];
   const toggleDone = useToggleTaskDone();
+  const hideFromBoard = useHideFromBoard();
+  const done = task.status === "concluido";
   return (
     <TaskContextMenu task={task} projects={projects} onEdit={onClick}>
       <div
@@ -108,6 +126,15 @@ function TaskRow({ task, project, projects, onClick }: { task: Task; project?: P
           )}
           {task.assignee_id && <User className="h-3 w-3" />}
         </div>
+        {done && (
+          <button
+            onClick={(e) => { e.stopPropagation(); hideFromBoard.mutate(task.id); }}
+            title="Arquivar tarefa (some das tarefas, mas continua em Concluídos)"
+            className="flex shrink-0 items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+          >
+            <Archive className="h-3.5 w-3.5" /> Arquivar
+          </button>
+        )}
       </div>
     </TaskContextMenu>
   );

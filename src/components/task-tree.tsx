@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Plus, Inbox, GripVertical, MessageSquare, Pencil } from "lucide-react";
+import { ChevronRight, Plus, Inbox, GripVertical, MessageSquare, Pencil, Archive } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -24,7 +24,7 @@ import {
   type Project,
 } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
-import { useToggleTaskDone, StatusDot } from "./task-views";
+import { useToggleTaskDone, useHideFromBoard, StatusDot } from "./task-views";
 import { TaskContextMenu } from "./task-context-menu";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { TaskCommentsPanel } from "./task-comments-panel";
@@ -98,6 +98,8 @@ function TreeNode({
   const token = STATUS_TOKEN[node.status];
   const hasChildren = node.children.length > 0;
   const toggleDone = useToggleTaskDone();
+  const hideFromBoard = useHideFromBoard();
+  const done = node.status === "concluido";
   const reorder = useReorderSiblings();
   const children = sortTasksDefault(node.children) as TaskNode[];
   // Sensor precisa ser chamado incondicionalmente (regras dos hooks), mesmo quando não há filhos expandidos.
@@ -175,6 +177,15 @@ function TreeNode({
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
+          {done && (
+            <button
+              onClick={(e) => { e.stopPropagation(); hideFromBoard.mutate(node.id); }}
+              className="flex shrink-0 items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+              title="Arquivar tarefa (some das tarefas, mas continua em Concluídos)"
+            >
+              <Archive className="h-3.5 w-3.5" /> Arquivar
+            </button>
+          )}
         </div>
       </TaskContextMenu>
 
